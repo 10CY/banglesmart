@@ -18,6 +18,11 @@ export const env = {
   DB_PASSWORD:
     process.env.DB_PASSWORD || "",
 
+  DB_ENABLE_SSL:
+    String(
+      process.env.DB_ENABLE_SSL || "false"
+    ).toLowerCase() === "true",
+
   DB_CA_PATH:
     process.env.DB_CA_PATH || "",
 
