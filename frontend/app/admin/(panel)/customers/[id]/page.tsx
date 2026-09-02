@@ -1,7 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useState,
+} from "react";
+
 import Link from "next/link";
+
 import {
   ArrowLeft,
   CalendarDays,
@@ -16,8 +22,11 @@ import {
   UserRound,
   X,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
+
 import { useParams } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 
 type Address = {
@@ -92,12 +101,16 @@ function statusClass(status: string) {
   switch (status) {
     case "delivered":
       return "bg-green-50 text-green-700";
+
     case "cancelled":
       return "bg-red-50 text-red-700";
+
     case "shipped":
       return "bg-blue-50 text-blue-700";
+
     case "processing":
       return "bg-amber-50 text-amber-700";
+
     default:
       return "bg-gray-100 text-gray-700";
   }
@@ -105,19 +118,38 @@ function statusClass(status: string) {
 
 export default function CustomerDetailsPage() {
   const params = useParams();
+
   const customerId = String(params.id);
 
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [customer, setCustomer] =
+    useState<Customer | null>(null);
 
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [status, setStatus] = useState("active");
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [editing, setEditing] =
+    useState(false);
+
+  const [name, setName] =
+    useState("");
+
+  const [email, setEmail] =
+    useState("");
+
+  const [phone, setPhone] =
+    useState("");
+
+  const [status, setStatus] =
+    useState("active");
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState("");
 
   async function loadCustomer() {
     try {
@@ -125,27 +157,50 @@ export default function CustomerDetailsPage() {
       setError("");
 
       const response = await apiFetch(
-        `/admin/customers/${customerId}`,
+        `/admin/customers/${customerId}`
       );
-      const json = await response.json();
+
+      const json =
+        await response.json();
 
       if (!response.ok) {
-        throw new Error(json?.message || "Unable to load customer.");
+        throw new Error(
+          json?.message ||
+            "Unable to load customer."
+        );
       }
 
-      const item = json?.data as Customer;
-      if (!item) throw new Error("Customer data not found.");
+      const item =
+        json?.data as Customer;
+
+      if (!item) {
+        throw new Error(
+          "Customer data not found."
+        );
+      }
 
       setCustomer(item);
-      setName(item.name || "");
-      setEmail(item.email || "");
-      setPhone(item.phone || "");
-      setStatus(item.status || "active");
+
+      setName(
+        item.name || ""
+      );
+
+      setEmail(
+        item.email || ""
+      );
+
+      setPhone(
+        item.phone || ""
+      );
+
+      setStatus(
+        item.status || "active"
+      );
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to connect to server.",
+          : "Unable to connect to server."
       );
     } finally {
       setLoading(false);
@@ -156,85 +211,113 @@ export default function CustomerDetailsPage() {
     void loadCustomer();
   }, [customerId]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     setSaving(true);
     setFormError("");
 
     try {
-      const response = await apiFetch(
-        `/admin/customers/${customerId}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            name: name.trim(),
-            email: email.trim(),
-            phone: phone.trim() || null,
-          }),
-        },
-      );
+      const response =
+        await apiFetch(
+          `/admin/customers/${customerId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              name: name.trim(),
+              email: email.trim(),
+              phone:
+                phone.trim() || null,
+            }),
+          }
+        );
 
-      const json = await response.json();
+      const json =
+        await response.json();
 
       if (!response.ok) {
-        throw new Error(json?.message || "Unable to update customer.");
+        throw new Error(
+          json?.message ||
+            "Unable to update customer."
+        );
       }
 
-      const statusResponse = await apiFetch(
-        `/admin/customers/${customerId}/status`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ status }),
-        },
-      );
+      const statusResponse =
+        await apiFetch(
+          `/admin/customers/${customerId}/status`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status,
+            }),
+          }
+        );
 
-      const statusJson = await statusResponse.json();
+      const statusJson =
+        await statusResponse.json();
 
       if (!statusResponse.ok) {
         throw new Error(
           statusJson?.message ||
-            "Unable to update customer status.",
+            "Unable to update customer status."
         );
       }
 
       setEditing(false);
+
       await loadCustomer();
     } catch (err) {
       setFormError(
         err instanceof Error
           ? err.message
-          : "Unable to update customer.",
+          : "Unable to update customer."
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function updateStatus(newStatus: "active" | "inactive") {
-    if (!customer) return;
+  async function updateStatus(
+    newStatus:
+      | "active"
+      | "inactive"
+  ) {
+    if (!customer) {
+      return;
+    }
 
-    const confirmed = window.confirm(
-      newStatus === "inactive"
-        ? "Deactivate this customer account?"
-        : "Activate this customer account?",
-    );
-
-    if (!confirmed) return;
-
-    try {
-      const response = await apiFetch(
-        `/admin/customers/${customerId}/status`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ status: newStatus }),
-        },
+    const confirmed =
+      window.confirm(
+        newStatus === "inactive"
+          ? "Deactivate this customer account?"
+          : "Activate this customer account?"
       );
 
-      const json = await response.json();
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response =
+        await apiFetch(
+          `/admin/customers/${customerId}/status`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status: newStatus,
+            }),
+          }
+        );
+
+      const json =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          json?.message || "Unable to update customer status.",
+          json?.message ||
+            "Unable to update customer status."
         );
       }
 
@@ -243,18 +326,34 @@ export default function CustomerDetailsPage() {
       window.alert(
         err instanceof Error
           ? err.message
-          : "Unable to connect to server.",
+          : "Unable to connect to server."
       );
     }
   }
 
   function cancelEdit() {
-    if (!customer) return;
-    setName(customer.name || "");
-    setEmail(customer.email || "");
-    setPhone(customer.phone || "");
-    setStatus(customer.status || "active");
+    if (!customer) {
+      return;
+    }
+
+    setName(
+      customer.name || ""
+    );
+
+    setEmail(
+      customer.email || ""
+    );
+
+    setPhone(
+      customer.phone || ""
+    );
+
+    setStatus(
+      customer.status || "active"
+    );
+
     setFormError("");
+
     setEditing(false);
   }
 
@@ -274,29 +373,116 @@ export default function CustomerDetailsPage() {
           className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-700"
         >
           <ArrowLeft size={17} />
+
           Back to customers
         </Link>
+
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-          {error || "Customer not found."}
+          {error ||
+            "Customer not found."}
         </div>
       </div>
     );
   }
 
-  const summary = customer.summary || {
-    orders_count: 0,
-    total_spent: 0,
-    pending_orders: 0,
-    processing_orders: 0,
-    shipped_orders: 0,
-    delivered_orders: 0,
-    cancelled_orders: 0,
-    addresses_count: 0,
-  };
+  const summary =
+    customer.summary || {
+      orders_count: 0,
+      total_spent: 0,
+      pending_orders: 0,
+      processing_orders: 0,
+      shipped_orders: 0,
+      delivered_orders: 0,
+      cancelled_orders: 0,
+      addresses_count: 0,
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Statistics
+  |--------------------------------------------------------------------------
+  |
+  | Explicit LucideIcon typing prevents TypeScript from
+  | interpreting the icon as string | number | component.
+  |
+  */
+
+  const stats: {
+    label: string;
+    value: string | number;
+    Icon: LucideIcon;
+  }[] = [
+    {
+      label: "Orders",
+      value: summary.orders_count,
+      Icon: Package,
+    },
+    {
+      label: "Total Spent",
+      value: formatPrice(
+        summary.total_spent
+      ),
+      Icon: ShoppingBag,
+    },
+    {
+      label: "Addresses",
+      value: summary.addresses_count,
+      Icon: MapPin,
+    },
+    {
+      label: "Delivered",
+      value: summary.delivered_orders,
+      Icon: CheckCircle2,
+    },
+  ];
+
+  /*
+  |--------------------------------------------------------------------------
+  | Customer Information
+  |--------------------------------------------------------------------------
+  */
+
+  const customerInfo: {
+    Icon: LucideIcon;
+    label: string;
+    value: string;
+  }[] = [
+    {
+      Icon: UserRound,
+      label: "Name",
+      value: customer.name,
+    },
+    {
+      Icon: Mail,
+      label: "Email",
+      value: customer.email,
+    },
+    {
+      Icon: Phone,
+      label: "Phone",
+      value:
+        customer.phone ||
+        "Not added",
+    },
+    {
+      Icon: CalendarDays,
+      label: "Joined",
+      value: formatDate(
+        customer.created_at
+      ),
+    },
+  ];
+
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <div className="space-y-6">
       {/* HEADER */}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link
@@ -310,6 +496,7 @@ export default function CustomerDetailsPage() {
             <h1 className="text-2xl font-semibold text-gray-900">
               Customer Details
             </h1>
+
             <p className="mt-1 text-sm text-gray-500">
               Complete account, address and order history.
             </p>
@@ -318,25 +505,34 @@ export default function CustomerDetailsPage() {
 
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={() =>
+            setEditing(true)
+          }
           className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-black"
         >
           <Edit3 size={17} />
+
           Edit Customer
         </button>
       </div>
 
       {/* PROFILE HEADER */}
+
       <section className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-xl font-semibold text-gray-700">
-              {customer.name?.charAt(0)?.toUpperCase() || "C"}
+              {customer.name
+                ?.charAt(0)
+                ?.toUpperCase() ||
+                "C"}
             </div>
+
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {customer.name}
               </h2>
+
               <p className="mt-1 text-sm text-gray-500">
                 Customer #{customer.id}
               </p>
@@ -345,51 +541,71 @@ export default function CustomerDetailsPage() {
 
           <span
             className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${
-              customer.status === "active"
+              customer.status ===
+              "active"
                 ? "bg-green-50 text-green-700"
                 : "bg-red-50 text-red-700"
             }`}
           >
-            {customer.status === "active" ? (
-              <CheckCircle2 size={16} />
+            {customer.status ===
+            "active" ? (
+              <CheckCircle2
+                size={16}
+              />
             ) : (
-              <XCircle size={16} />
+              <XCircle
+                size={16}
+              />
             )}
-            {customer.status === "active" ? "Active" : "Inactive"}
+
+            {customer.status ===
+            "active"
+              ? "Active"
+              : "Inactive"}
           </span>
         </div>
       </section>
 
       {/* STATS */}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Orders", summary.orders_count, Package],
-          ["Total Spent", formatPrice(summary.total_spent), ShoppingBag],
-          ["Addresses", summary.addresses_count, MapPin],
-          ["Delivered", summary.delivered_orders, CheckCircle2],
-        ].map(([label, value, Icon]) => {
-          const StatIcon = Icon as typeof Package;
-          return (
+        {stats.map(
+          ({
+            label,
+            value,
+            Icon,
+          }) => (
             <div
-              key={String(label)}
+              key={label}
               className="rounded-2xl border border-gray-200 bg-white p-5"
             >
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500">{label}</p>
-                <StatIcon size={18} className="text-gray-400" />
+                <p className="text-sm text-gray-500">
+                  {label}
+                </p>
+
+                <Icon
+                  size={18}
+                  className="text-gray-400"
+                />
               </div>
+
               <p className="mt-3 text-2xl font-semibold text-gray-900">
                 {value}
               </p>
             </div>
-          );
-        })}
+          )
+        )}
       </div>
+
+      {/* MAIN CONTENT */}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* LEFT */}
+
         <div className="space-y-6">
           {/* CUSTOMER INFORMATION */}
+
           <section className="rounded-2xl border border-gray-200 bg-white">
             <div className="border-b border-gray-200 px-6 py-5">
               <h2 className="font-semibold text-gray-900">
@@ -398,7 +614,10 @@ export default function CustomerDetailsPage() {
             </div>
 
             {editing ? (
-              <form onSubmit={handleSubmit} className="space-y-5 p-6">
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5 p-6"
+              >
                 {formError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {formError}
@@ -409,9 +628,14 @@ export default function CustomerDetailsPage() {
                   <span className="mb-2 block text-sm font-medium text-gray-700">
                     Name
                   </span>
+
                   <input
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) =>
+                      setName(
+                        e.target.value
+                      )
+                    }
                     required
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
@@ -421,10 +645,15 @@ export default function CustomerDetailsPage() {
                   <span className="mb-2 block text-sm font-medium text-gray-700">
                     Email
                   </span>
+
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) =>
+                      setEmail(
+                        e.target.value
+                      )
+                    }
                     required
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
@@ -434,9 +663,14 @@ export default function CustomerDetailsPage() {
                   <span className="mb-2 block text-sm font-medium text-gray-700">
                     Phone
                   </span>
+
                   <input
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) =>
+                      setPhone(
+                        e.target.value
+                      )
+                    }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
                 </label>
@@ -445,131 +679,184 @@ export default function CustomerDetailsPage() {
                   <span className="mb-2 block text-sm font-medium text-gray-700">
                     Account Status
                   </span>
+
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value)}
+                    onChange={(e) =>
+                      setStatus(
+                        e.target.value
+                      )
+                    }
                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none"
                   >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="active">
+                      Active
+                    </option>
+
+                    <option value="inactive">
+                      Inactive
+                    </option>
                   </select>
                 </label>
 
                 <div className="flex justify-end gap-3 border-t border-gray-100 pt-5">
                   <button
                     type="button"
-                    onClick={cancelEdit}
+                    onClick={
+                      cancelEdit
+                    }
                     className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700"
                   >
                     <X size={17} />
+
                     Cancel
                   </button>
+
                   <button
                     type="submit"
                     disabled={saving}
                     className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
                   >
                     <Save size={17} />
-                    {saving ? "Saving..." : "Save Changes"}
+
+                    {saving
+                      ? "Saving..."
+                      : "Save Changes"}
                   </button>
                 </div>
               </form>
             ) : (
               <div className="divide-y divide-gray-100">
-                {[
-                  [UserRound, "Name", customer.name],
-                  [Mail, "Email", customer.email],
-                  [Phone, "Phone", customer.phone || "Not added"],
-                  [CalendarDays, "Joined", formatDate(customer.created_at)],
-                ].map(([Icon, label, value]) => {
-                  const InfoIcon = Icon as typeof UserRound;
-                  return (
+                {customerInfo.map(
+                  ({
+                    Icon,
+                    label,
+                    value,
+                  }) => (
                     <div
-                      key={String(label)}
+                      key={label}
                       className="flex items-center gap-4 px-6 py-5"
                     >
                       <div className="rounded-lg bg-gray-100 p-2.5 text-gray-600">
-                        <InfoIcon size={19} />
+                        <Icon
+                          size={19}
+                        />
                       </div>
+
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                           {label}
                         </p>
+
                         <p className="mt-1 text-sm font-medium text-gray-900">
                           {value}
                         </p>
                       </div>
                     </div>
-                  );
-                })}
+                  )
+                )}
               </div>
             )}
           </section>
 
           {/* ADDRESSES */}
+
           <section className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-900">Addresses</h2>
+                <h2 className="font-semibold text-gray-900">
+                  Addresses
+                </h2>
+
                 <p className="mt-1 text-sm text-gray-500">
                   Saved shipping and billing addresses.
                 </p>
               </div>
+
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
                 {customer.addresses.length}
               </span>
             </div>
 
-            {customer.addresses.length === 0 ? (
+            {customer.addresses.length ===
+            0 ? (
               <div className="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
                 This customer has no saved addresses.
               </div>
             ) : (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {customer.addresses.map((address) => (
-                  <div
-                    key={address.id}
-                    className="rounded-xl border border-gray-200 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {address.full_name}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {address.type}
-                          {Boolean(address.is_default) && " • Default"}
-                        </p>
+                {customer.addresses.map(
+                  (address) => (
+                    <div
+                      key={address.id}
+                      className="rounded-xl border border-gray-200 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {address.full_name}
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-500">
+                            {address.type}
+
+                            {Boolean(
+                              address.is_default
+                            ) &&
+                              " • Default"}
+                          </p>
+                        </div>
+
+                        <MapPin
+                          size={17}
+                          className="text-gray-400"
+                        />
                       </div>
-                      <MapPin size={17} className="text-gray-400" />
+
+                      <p className="mt-4 text-sm leading-6 text-gray-600">
+                        {address.address_line_1}
+
+                        {address.address_line_2 &&
+                          `, ${address.address_line_2}`}
+
+                        {address.landmark &&
+                          `, ${address.landmark}`}
+
+                        <br />
+
+                        {address.city},{" "}
+                        {address.state} -{" "}
+                        {address.postal_code}
+
+                        <br />
+
+                        {address.country}
+                      </p>
+
+                      <p className="mt-3 text-xs text-gray-500">
+                        {address.phone}
+                      </p>
                     </div>
-                    <p className="mt-4 text-sm leading-6 text-gray-600">
-                      {address.address_line_1}
-                      {address.address_line_2 && `, ${address.address_line_2}`}
-                      {address.landmark && `, ${address.landmark}`}
-                      <br />
-                      {address.city}, {address.state} - {address.postal_code}
-                      <br />
-                      {address.country}
-                    </p>
-                    <p className="mt-3 text-xs text-gray-500">
-                      {address.phone}
-                    </p>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </section>
 
           {/* ORDERS */}
+
           <section className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-900">Recent Orders</h2>
+                <h2 className="font-semibold text-gray-900">
+                  Recent Orders
+                </h2>
+
                 <p className="mt-1 text-sm text-gray-500">
                   Latest orders placed by this customer.
                 </p>
               </div>
+
               <Link
                 href="/admin/orders"
                 className="text-sm font-medium text-gray-700 hover:text-black"
@@ -578,7 +865,8 @@ export default function CustomerDetailsPage() {
               </Link>
             </div>
 
-            {customer.orders.length === 0 ? (
+            {customer.orders.length ===
+            0 ? (
               <div className="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
                 No orders yet.
               </div>
@@ -587,49 +875,89 @@ export default function CustomerDetailsPage() {
                 <table className="w-full min-w-[680px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                      <th className="pb-3 pr-4">Order</th>
-                      <th className="pb-3 pr-4">Date</th>
-                      <th className="pb-3 pr-4">Items</th>
-                      <th className="pb-3 pr-4">Payment</th>
-                      <th className="pb-3 pr-4">Status</th>
-                      <th className="pb-3 text-right">Total</th>
+                      <th className="pb-3 pr-4">
+                        Order
+                      </th>
+
+                      <th className="pb-3 pr-4">
+                        Date
+                      </th>
+
+                      <th className="pb-3 pr-4">
+                        Items
+                      </th>
+
+                      <th className="pb-3 pr-4">
+                        Payment
+                      </th>
+
+                      <th className="pb-3 pr-4">
+                        Status
+                      </th>
+
+                      <th className="pb-3 text-right">
+                        Total
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {customer.orders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-b border-gray-50 last:border-0"
-                      >
-                        <td className="py-4 pr-4">
-                          <Link
-                            href={`/admin/orders/${order.id}`}
-                            className="font-medium text-gray-900 hover:underline"
-                          >
-                            #{order.order_number}
-                          </Link>
-                        </td>
-                        <td className="py-4 pr-4 text-gray-500">
-                          {formatDate(order.created_at)}
-                        </td>
-                        <td className="py-4 pr-4 text-gray-500">
-                          {order.items_count}
-                        </td>
-                        <td className="py-4 pr-4 text-gray-500">
-                          {String(order.payment_method).toUpperCase()}
-                        </td>
-                        <td className="py-4 pr-4">
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(order.status)}`}
-                          >
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="py-4 text-right font-medium text-gray-900">
-                          {formatPrice(order.total_amount)}
-                        </td>
-                      </tr>
-                    ))}
+                    {customer.orders.map(
+                      (order) => (
+                        <tr
+                          key={order.id}
+                          className="border-b border-gray-50 last:border-0"
+                        >
+                          <td className="py-4 pr-4">
+                            <Link
+                              href={`/admin/orders/${order.id}`}
+                              className="font-medium text-gray-900 hover:underline"
+                            >
+                              #
+                              {
+                                order.order_number
+                              }
+                            </Link>
+                          </td>
+
+                          <td className="py-4 pr-4 text-gray-500">
+                            {formatDate(
+                              order.created_at
+                            )}
+                          </td>
+
+                          <td className="py-4 pr-4 text-gray-500">
+                            {
+                              order.items_count
+                            }
+                          </td>
+
+                          <td className="py-4 pr-4 text-gray-500">
+                            {String(
+                              order.payment_method
+                            ).toUpperCase()}
+                          </td>
+
+                          <td className="py-4 pr-4">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(
+                                order.status
+                              )}`}
+                            >
+                              {
+                                order.status
+                              }
+                            </span>
+                          </td>
+
+                          <td className="py-4 text-right font-medium text-gray-900">
+                            {formatPrice(
+                              order.total_amount
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -638,20 +966,32 @@ export default function CustomerDetailsPage() {
         </div>
 
         {/* RIGHT */}
+
         <aside className="space-y-6">
+          {/* ACCOUNT STATUS */}
+
           <section className="rounded-2xl border border-gray-200 bg-white p-5">
-            <h2 className="font-semibold text-gray-900">Account Status</h2>
+            <h2 className="font-semibold text-gray-900">
+              Account Status
+            </h2>
+
             <p className="mt-3 text-sm leading-6 text-gray-500">
-              {customer.status === "active"
+              {customer.status ===
+              "active"
                 ? "This customer can log in and place orders."
                 : "This customer cannot log in until the account is activated."}
             </p>
 
             <div className="mt-5 grid gap-2">
-              {customer.status === "active" ? (
+              {customer.status ===
+              "active" ? (
                 <button
                   type="button"
-                  onClick={() => void updateStatus("inactive")}
+                  onClick={() =>
+                    void updateStatus(
+                      "inactive"
+                    )
+                  }
                   className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50"
                 >
                   Deactivate Customer
@@ -659,7 +999,11 @@ export default function CustomerDetailsPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => void updateStatus("active")}
+                  onClick={() =>
+                    void updateStatus(
+                      "active"
+                    )
+                  }
                   className="rounded-lg border border-green-200 px-4 py-2.5 text-sm font-medium text-green-700 hover:bg-green-50"
                 >
                   Activate Customer
@@ -668,34 +1012,70 @@ export default function CustomerDetailsPage() {
             </div>
           </section>
 
+          {/* ORDER BREAKDOWN */}
+
           <section className="rounded-2xl border border-gray-200 bg-white p-5">
-            <h2 className="font-semibold text-gray-900">Order Breakdown</h2>
+            <h2 className="font-semibold text-gray-900">
+              Order Breakdown
+            </h2>
+
             <div className="mt-5 space-y-3">
               {[
-                ["Pending", summary.pending_orders],
-                ["Processing", summary.processing_orders],
-                ["Shipped", summary.shipped_orders],
-                ["Delivered", summary.delivered_orders],
-                ["Cancelled", summary.cancelled_orders],
-              ].map(([label, value]) => (
-                <div
-                  key={String(label)}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm text-gray-500">{label}</span>
-                  <span className="font-medium text-gray-900">{value}</span>
-                </div>
-              ))}
+                [
+                  "Pending",
+                  summary.pending_orders,
+                ],
+                [
+                  "Processing",
+                  summary.processing_orders,
+                ],
+                [
+                  "Shipped",
+                  summary.shipped_orders,
+                ],
+                [
+                  "Delivered",
+                  summary.delivered_orders,
+                ],
+                [
+                  "Cancelled",
+                  summary.cancelled_orders,
+                ],
+              ].map(
+                ([label, value]) => (
+                  <div
+                    key={String(label)}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-sm text-gray-500">
+                      {label}
+                    </span>
+
+                    <span className="font-medium text-gray-900">
+                      {value}
+                    </span>
+                  </div>
+                )
+              )}
             </div>
           </section>
 
+          {/* CUSTOMER ID */}
+
           <section className="rounded-2xl border border-gray-200 bg-white p-5">
-            <h2 className="font-semibold text-gray-900">Customer ID</h2>
+            <h2 className="font-semibold text-gray-900">
+              Customer ID
+            </h2>
+
             <p className="mt-2 text-2xl font-semibold text-gray-900">
               #{customer.id}
             </p>
+
             <p className="mt-2 text-xs text-gray-500">
-              Joined {formatDate(customer.created_at)}
+              Joined{" "}
+              {formatDate(
+                customer.created_at
+              )}
             </p>
           </section>
         </aside>
