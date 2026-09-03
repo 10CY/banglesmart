@@ -71,11 +71,11 @@ export async function index(req, res) {
       `
         SELECT *
         FROM orders
-        WHERE user_id=?
+        WHERE user_id = ?
         ORDER BY id DESC
-        LIMIT ? OFFSET ?
+        LIMIT ${limit} OFFSET ${offset}
       `,
-      [req.user.id, perPage, offset],
+      [userId]
     );
 
     return ok(res, {
