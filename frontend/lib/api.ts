@@ -6,12 +6,6 @@ export const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   "http://127.0.0.1:8000";
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN API
-|--------------------------------------------------------------------------
-*/
-
 export async function apiFetch(
   endpoint: string,
   options: RequestInit = {},
@@ -21,10 +15,21 @@ export async function apiFetch(
       ? localStorage.getItem("admin_token")
       : null;
 
-  const headers = new Headers(options.headers);
+  const headers = new Headers(
+    options.headers,
+  );
 
-  headers.set("Accept", "application/json");
+  headers.set(
+    "Accept",
+    "application/json",
+  );
 
+  /*
+   * FormData must NOT receive
+   * application/json.
+   * Browser will automatically set
+   * multipart/form-data + boundary.
+   */
   if (
     options.body &&
     !(options.body instanceof FormData)
@@ -35,6 +40,9 @@ export async function apiFetch(
     );
   }
 
+  /*
+   * Admin authentication
+   */
   if (token) {
     headers.set(
       "Authorization",
@@ -50,6 +58,10 @@ export async function apiFetch(
     },
   );
 
+  /*
+   * If backend says unauthenticated,
+   * don't silently continue.
+   */
   if (
     response.status === 401 &&
     typeof window !== "undefined"
@@ -59,66 +71,7 @@ export async function apiFetch(
       {
         endpoint,
         hasToken: !!token,
-      },
-    );
-  }
-
-  return response;
-}
-
-/*
-|--------------------------------------------------------------------------
-| CUSTOMER API
-|--------------------------------------------------------------------------
-*/
-
-export async function customerApiFetch(
-  endpoint: string,
-  options: RequestInit = {},
-) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("customer_token")
-      : null;
-
-  const headers = new Headers(options.headers);
-
-  headers.set("Accept", "application/json");
-
-  if (
-    options.body &&
-    !(options.body instanceof FormData)
-  ) {
-    headers.set(
-      "Content-Type",
-      "application/json",
-    );
-  }
-
-  if (token) {
-    headers.set(
-      "Authorization",
-      `Bearer ${token}`,
-    );
-  }
-
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-      headers,
-    },
-  );
-
-  if (
-    response.status === 401 &&
-    typeof window !== "undefined"
-  ) {
-    console.error(
-      "CUSTOMER AUTHENTICATION FAILED",
-      {
-        endpoint,
-        hasToken: !!token,
+        tokenLength: token?.length || 0,
       },
     );
   }
