@@ -92,23 +92,23 @@ export async function index(req, res) {
     */
 
     const rows = await query(
-      `
-      SELECT
-        u.id,
-        u.name,
-        u.email,
-        u.phone,
-        u.role,
-        u.status,
-        u.created_at,
-        u.updated_at
-      FROM users u
-      ${where}
-      ORDER BY u.id DESC
-      LIMIT ? OFFSET ?
-      `,
-      [...params, perPage, offset],
-    );
+  `
+    SELECT
+      u.id,
+      u.name,
+      u.email,
+      u.phone,
+      u.role,
+      u.status,
+      u.created_at,
+      u.updated_at
+    FROM users u
+    ${where}
+    ORDER BY u.id DESC
+    LIMIT ${perPage} OFFSET ${offset}
+  `,
+  params,
+);
 
     /*
     |--------------------------------------------------------------------------

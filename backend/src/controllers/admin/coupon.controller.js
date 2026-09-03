@@ -117,7 +117,7 @@ export async function index(req, res) {
     |
     */
 
-    const rows = await query(
+        const rows = await query(
       `SELECT
         c.*,
         (
@@ -125,11 +125,11 @@ export async function index(req, res) {
           FROM coupon_usages cu
           WHERE cu.coupon_id = c.id
         ) AS usages_count
-       FROM coupons c
-       ${whereSql}
-       ORDER BY c.id DESC
-       LIMIT ? OFFSET ?`,
-      [...params, perPage, offset],
+      FROM coupons c
+      ${whereSql}
+      ORDER BY c.id DESC
+      LIMIT ${perPage} OFFSET ${offset}`,
+      params,
     );
 
     const lastPage =

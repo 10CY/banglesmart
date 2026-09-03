@@ -44,18 +44,19 @@ function normalizeRating(rating) {
 
 export async function index(req, res) {
   try {
-    const page = Math.max(
-      1,
-      Number(req.query.page || 1)
-    );
+    let page = Number.parseInt(req.query.page, 10);
+let limit = Number.parseInt(req.query.limit, 10);
 
-    const limit = Math.min(
-      50,
-      Math.max(
-        1,
-        Number(req.query.limit || 10)
-      )
-    );
+if (!Number.isFinite(page) || page < 1) {
+  page = 1;
+}
+
+if (!Number.isFinite(limit) || limit < 1) {
+  limit = 10;
+}
+
+limit = Math.min(limit, 50);
+
 
     const offset =
       (page - 1) * limit;
@@ -188,13 +189,9 @@ export async function index(req, res) {
 
         ORDER BY r.id DESC
 
-        LIMIT ? OFFSET ?
+        LIMIT ${limit} OFFSET ${offset}
         `,
-        [
-          ...params,
-          limit,
-          offset,
-        ]
+        params
       );
 
 
