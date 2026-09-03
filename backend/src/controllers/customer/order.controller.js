@@ -73,9 +73,9 @@ export async function index(req, res) {
         FROM orders
         WHERE user_id = ?
         ORDER BY id DESC
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT ${perPage} OFFSET ${offset}
       `,
-      [userId]
+      [req.user.id],
     );
 
     return ok(res, {
