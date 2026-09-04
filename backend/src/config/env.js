@@ -47,3 +47,5 @@ export const env = {
   MAIL_FROM:
     process.env.MAIL_FROM || "BanglesMart <onboarding@resend.dev>",
 };
+
+

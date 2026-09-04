@@ -1,1 +1,5 @@
-import app from './app.js'; import {env} from './config/env.js'; import {pool} from './db.js'; pool.query('SELECT 1').then(()=>app.listen(env.PORT,()=>console.log(`BanglesMart Node API running at ${env.BACKEND_URL}`))).catch(e=>{console.error('Database connection failed:',e.message);process.exit(1)});
+import app from './app.js';
+import { env } from './config/env.js';
+import { pool } from './db.js';
+
+pool.query('SELECT 1').then(() => app.listen(env.PORT, () => console.log(`BanglesMart Node API running at ${env.BACKEND_URL}`))).catch(e => { console.error('Database connection failed:', e.message); process.exit(1) });
