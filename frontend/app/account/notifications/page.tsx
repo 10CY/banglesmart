@@ -4,10 +4,117 @@ import Link from "next/link";
 import { ArrowLeft, Bell, CheckCheck } from "lucide-react";
 import { customerApiFetch } from "@/lib/customerApi";
 
-type Notification={id:number;title:string;message:string;read_at:string|null;created_at:string};
-export default function NotificationsPage(){const [rows,setRows]=useState<Notification[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- async function load(){try{const r=await customerApiFetch('/customer/notifications');const j=await r.json();if(r.status===401){location.href='/login';return;}if(!r.ok)throw new Error(j?.message||'Unable to load notifications.');setRows(Array.isArray(j?.data)?j.data:[]);}catch(e){setError(e instanceof Error?e.message:'Unable to load notifications.');}finally{setLoading(false);}}
- useEffect(()=>{void load();},[]);
- async function readAll(){await customerApiFetch('/customer/notifications/read-all',{method:'PUT'});void load();}
- async function read(id:number){await customerApiFetch(`/customer/notifications/${id}/read`,{method:'PUT'});void load();}
- return <main className="min-h-screen bg-gray-50 px-4 py-10"><div className="mx-auto max-w-4xl"><Link href="/account" className="inline-flex items-center gap-2 text-sm text-gray-600"><ArrowLeft size={16}/> My Account</Link><div className="mt-5 flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-[#f8f1e5] p-3 text-[#8f0828]"><Bell size={20}/></div><div><h1 className="text-3xl font-semibold text-gray-900">Notifications</h1><p className="mt-1 text-sm text-gray-500">Order and account updates.</p></div></div><button onClick={()=>void readAll()} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"><CheckCheck size={16}/> Mark all read</button></div>{error&&<div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}<div className="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white">{loading?<div className="p-8 text-sm text-gray-500">Loading...</div>:rows.length===0?<div className="p-12 text-center text-sm text-gray-500">You’re all caught up.</div>:<div className="divide-y divide-gray-100">{rows.map(n=><button key={n.id} onClick={()=>void read(n.id)} className={`block w-full p-5 text-left transition hover:bg-gray-50 ${n.read_at?'':'bg-[#fffaf0]'}`}><div className="flex items-start justify-between gap-4"><div><p className="font-semibold text-gray-900">{n.title}</p><p className="mt-1 text-sm leading-6 text-gray-600">{n.message}</p></div>{!n.read_at&&<span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#c9a227]"/>}</div></button>)}</div>}</div></div></main>}
+type Notification = {
+  id: number;
+  title: string;
+  message: string;
+  read_at: string | null;
+  created_at: string;
+};
+export default function NotificationsPage() {
+  const [rows, setRows] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  async function load() {
+    try {
+      const r = await customerApiFetch("/customer/notifications");
+      const j = await r.json();
+      if (r.status === 401) {
+        location.href = "/login";
+        return;
+      }
+      if (!r.ok) throw new Error(j?.message || "Unable to load notifications.");
+      setRows(Array.isArray(j?.data) ? j.data : []);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Unable to load notifications.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, []);
+  async function readAll() {
+    await customerApiFetch("/customer/notifications/read-all", {
+      method: "PUT",
+    });
+    void load();
+  }
+  async function read(id: number) {
+    await customerApiFetch(`/customer/notifications/${id}/read`, {
+      method: "PUT",
+    });
+    void load();
+  }
+  return (
+    <main className="min-h-screen bg-gray-50 px-4 py-10">
+      <div className="mx-auto max-w-4xl">
+        <Link
+          href="/account"
+          className="inline-flex items-center gap-2 text-sm text-gray-600"
+        >
+          <ArrowLeft size={16} /> My Account
+        </Link>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[#f8f1e5] p-3 text-[#8f0828]">
+              <Bell size={20} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-semibold text-gray-900">
+                Notifications
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Order and account updates.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => void readAll()}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+          >
+            <CheckCheck size={16} /> Mark all read
+          </button>
+        </div>
+        {error && (
+          <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          {loading ? (
+            <div className="p-8 text-sm text-gray-500">Loading...</div>
+          ) : rows.length === 0 ? (
+            <div className="p-12 text-center text-sm text-gray-500">
+              You’re all caught up.
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {rows.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => void read(n.id)}
+                  className={`block w-full p-5 text-left transition hover:bg-gray-50 ${n.read_at ? "" : "bg-[#fffaf0]"}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-gray-900">{n.title}</p>
+                      <p className="mt-1 text-sm leading-6 text-gray-600">
+                        {n.message}
+                      </p>
+                    </div>
+                    {!n.read_at && (
+                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#c9a227]" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}

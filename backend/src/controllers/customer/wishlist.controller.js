@@ -11,7 +11,7 @@ async function list(uid) {
         WHERE user_id = ?
         LIMIT 1
       `,
-      [uid]
+      [uid],
     )
   )[0];
 
@@ -62,7 +62,7 @@ async function list(uid) {
 
       ORDER BY wi.id DESC
     `,
-    [wishlist.id]
+    [wishlist.id],
   );
 
   const formattedItems = items.map((item) => ({
@@ -77,11 +77,8 @@ async function list(uid) {
       name: item.product_name,
       slug: item.product_slug,
       mrp: String(item.product_mrp),
-      selling_price: String(
-        item.product_selling_price
-      ),
-      short_description:
-        item.product_short_description,
+      selling_price: String(item.product_selling_price),
+      short_description: item.product_short_description,
       status: item.product_status,
 
       category: item.category_id
@@ -117,16 +114,9 @@ export async function index(req, res) {
       data,
     });
   } catch (error) {
-    console.error(
-      "Wishlist index error:",
-      error
-    );
+    console.error("Wishlist index error:", error);
 
-    return fail(
-      res,
-      "Unable to load wishlist.",
-      500
-    );
+    return fail(res, "Unable to load wishlist.", 500);
   }
 }
 
@@ -135,11 +125,7 @@ export async function store(req, res) {
     const { product_id } = req.body || {};
 
     if (!product_id) {
-      return fail(
-        res,
-        "Product is required.",
-        422
-      );
+      return fail(res, "Product is required.", 422);
     }
 
     const product = (
@@ -151,16 +137,12 @@ export async function store(req, res) {
             AND status = 'active'
           LIMIT 1
         `,
-        [product_id]
+        [product_id],
       )
     )[0];
 
     if (!product) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+      return fail(res, "Product not found.", 404);
     }
 
     let wishlist = (
@@ -171,7 +153,7 @@ export async function store(req, res) {
           WHERE user_id = ?
           LIMIT 1
         `,
-        [req.user.id]
+        [req.user.id],
       )
     )[0];
 
@@ -191,7 +173,7 @@ export async function store(req, res) {
             NOW()
           )
         `,
-        [req.user.id]
+        [req.user.id],
       );
 
       wishlist = {
@@ -208,10 +190,7 @@ export async function store(req, res) {
             AND product_id = ?
           LIMIT 1
         `,
-        [
-          wishlist.id,
-          product_id,
-        ]
+        [wishlist.id, product_id],
       )
     )[0];
 
@@ -233,16 +212,11 @@ export async function store(req, res) {
             NOW()
           )
         `,
-        [
-          wishlist.id,
-          product_id,
-        ]
+        [wishlist.id, product_id],
       );
     }
 
-    const data = await list(
-      req.user.id
-    );
+    const data = await list(req.user.id);
 
     return ok(
       res,
@@ -250,19 +224,12 @@ export async function store(req, res) {
         success: true,
         data,
       },
-      201
+      201,
     );
   } catch (error) {
-    console.error(
-      "Wishlist store error:",
-      error
-    );
+    console.error("Wishlist store error:", error);
 
-    return fail(
-      res,
-      "Unable to add product to wishlist.",
-      500
-    );
+    return fail(res, "Unable to add product to wishlist.", 500);
   }
 }
 
@@ -277,31 +244,19 @@ export async function destroy(req, res) {
         WHERE wi.id = ?
           AND w.user_id = ?
       `,
-      [
-        req.params.id,
-        req.user.id,
-      ]
+      [req.params.id, req.user.id],
     );
 
-    const data = await list(
-      req.user.id
-    );
+    const data = await list(req.user.id);
 
     return ok(res, {
       success: true,
       data,
     });
   } catch (error) {
-    console.error(
-      "Wishlist destroy error:",
-      error
-    );
+    console.error("Wishlist destroy error:", error);
 
-    return fail(
-      res,
-      "Unable to remove product from wishlist.",
-      500
-    );
+    return fail(res, "Unable to remove product from wishlist.", 500);
   }
 }
 
@@ -315,7 +270,7 @@ export async function check(req, res) {
           WHERE user_id = ?
           LIMIT 1
         `,
-        [req.user.id]
+        [req.user.id],
       )
     )[0];
 
@@ -329,10 +284,7 @@ export async function check(req, res) {
                 AND product_id = ?
               LIMIT 1
             `,
-            [
-              wishlist.id,
-              req.params.product,
-            ]
+            [wishlist.id, req.params.product],
           )
         )[0]
       : null;
@@ -341,20 +293,12 @@ export async function check(req, res) {
       success: true,
       data: {
         in_wishlist: !!found,
-        wishlist_item_id:
-          found?.id || null,
+        wishlist_item_id: found?.id || null,
       },
     });
   } catch (error) {
-    console.error(
-      "Wishlist check error:",
-      error
-    );
+    console.error("Wishlist check error:", error);
 
-    return fail(
-      res,
-      "Unable to check wishlist.",
-      500
-    );
+    return fail(res, "Unable to check wishlist.", 500);
   }
 }

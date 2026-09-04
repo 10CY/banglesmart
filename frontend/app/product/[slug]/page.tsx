@@ -8,7 +8,7 @@ import {
 } from "react";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   Star,
 } from "lucide-react";
+
 
 import { customerApiFetch } from "@/lib/customerApi";
 import { storeApiFetch } from "@/lib/storeApi";
@@ -656,137 +657,218 @@ export default function ProductDetailPage() {
     }
   }
 
+  const router = useRouter();
+  // check login
+
+  function requireLogin() {
+  const token =
+    localStorage.getItem(
+      "customer_token"
+    );
+
+  if (token) {
+    return true;
+  }
+
+  const currentPath =
+    window.location.pathname +
+    window.location.search;
+
+  router.push(
+    `/login?redirect=${encodeURIComponent(
+      currentPath
+    )}`
+  );
+
+  return false;
+}
   /* ==========================================================================
      ADD TO CART
   ========================================================================== */
 
   async function addToCart() {
-    if (!product) return;
+  if (!requireLogin()) {
+    return;
+  }
 
-    if (!selectedVariant) {
-      setMessage("Please select a product variant.");
-      return;
-    }
+  if (!product) {
+    return;
+  }
 
-    if (outOfStock) {
-      setMessage("This product is currently out of stock.");
-      return;
-    }
+  if (!selectedVariant) {
+    setMessage(
+      "Please select a product variant."
+    );
+    return;
+  }
 
-    if (quantity < 1) {
-      setMessage("Please select a valid quantity.");
-      return;
-    }
+  if (outOfStock) {
+    setMessage(
+      "This product is currently out of stock."
+    );
+    return;
+  }
 
-    if (quantity > stock) {
-      setMessage(`Only ${stock} item(s) available.`);
-      return;
-    }
+  if (quantity < 1) {
+    setMessage(
+      "Please select a valid quantity."
+    );
+    return;
+  }
 
-    try {
-      setAdding(true);
-      setMessage("");
+  if (quantity > stock) {
+    setMessage(
+      `Only ${stock} item(s) available.`
+    );
+    return;
+  }
 
-      const response = await customerApiFetch(
+  try {
+    setAdding(true);
+    setMessage("");
+
+    const response =
+      await customerApiFetch(
         "/customer/cart/items",
         {
           method: "POST",
+
           body: JSON.stringify({
-            product_variant_id: selectedVariant.id,
+            product_variant_id:
+              selectedVariant.id,
+
             quantity,
           }),
         }
       );
 
-      const json = await response.json();
+    const json =
+      await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          json?.message || "Unable to add product to cart."
-        );
-      }
-
-      setMessage("Product added to cart successfully.");
-
-      window.dispatchEvent(
-        new Event("banglesmart:customer-refresh")
+    if (!response.ok) {
+      throw new Error(
+        json?.message ||
+          "Unable to add product to cart."
       );
-    } catch (err) {
-      console.error("Add to cart error:", err);
-
-      setMessage(
-        err instanceof Error
-          ? err.message
-          : "Unable to add product to cart."
-      );
-    } finally {
-      setAdding(false);
     }
+
+    setMessage(
+      "Product added to bag successfully."
+    );
+
+    window.dispatchEvent(
+      new Event(
+        "banglesmart:customer-refresh"
+      )
+    );
+
+  } catch (err) {
+    console.error(
+      "Add to cart error:",
+      err
+    );
+
+    setMessage(
+      err instanceof Error
+        ? err.message
+        : "Unable to add product to cart."
+    );
+
+  } finally {
+    setAdding(false);
   }
+}
 
   async function buyNow() {
-    if (!product) return;
+  if (!requireLogin()) {
+    return;
+  }
 
-    if (!selectedVariant) {
-      setMessage("Please select a product variant.");
-      return;
-    }
+  if (!product) {
+    return;
+  }
 
-    if (outOfStock) {
-      setMessage("This product is currently out of stock.");
-      return;
-    }
+  if (!selectedVariant) {
+    setMessage(
+      "Please select a product variant."
+    );
+    return;
+  }
 
-    if (quantity < 1) {
-      setMessage("Please select a valid quantity.");
-      return;
-    }
+  if (outOfStock) {
+    setMessage(
+      "This product is currently out of stock."
+    );
+    return;
+  }
 
-    if (quantity > stock) {
-      setMessage(`Only ${stock} item(s) available.`);
-      return;
-    }
+  if (quantity < 1) {
+    setMessage(
+      "Please select a valid quantity."
+    );
+    return;
+  }
 
-    try {
-      setAdding(true);
-      setMessage("");
+  if (quantity > stock) {
+    setMessage(
+      `Only ${stock} item(s) available.`
+    );
+    return;
+  }
 
-      const response = await customerApiFetch(
+  try {
+    setAdding(true);
+    setMessage("");
+
+    const response =
+      await customerApiFetch(
         "/customer/cart/items",
         {
           method: "POST",
+
           body: JSON.stringify({
-            product_variant_id: selectedVariant.id,
+            product_variant_id:
+              selectedVariant.id,
+
             quantity,
           }),
         }
       );
 
-      const json = await response.json();
+    const json =
+      await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          json?.message || "Unable to proceed to checkout."
-        );
-      }
-
-      window.dispatchEvent(
-        new Event("banglesmart:customer-refresh")
+    if (!response.ok) {
+      throw new Error(
+        json?.message ||
+          "Unable to proceed to checkout."
       );
-
-      window.location.href = "/checkout";
-    } catch (err) {
-      console.error("Buy now error:", err);
-
-      setMessage(
-        err instanceof Error
-          ? err.message
-          : "Unable to proceed to checkout."
-      );
-    } finally {
-      setAdding(false);
     }
+
+    window.dispatchEvent(
+      new Event(
+        "banglesmart:customer-refresh"
+      )
+    );
+
+    router.push("/checkout");
+
+  } catch (err) {
+    console.error(
+      "Buy now error:",
+      err
+    );
+
+    setMessage(
+      err instanceof Error
+        ? err.message
+        : "Unable to proceed to checkout."
+    );
+
+  } finally {
+    setAdding(false);
   }
+}
 
   /* ==========================================================================
      LOADING

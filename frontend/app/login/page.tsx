@@ -14,38 +14,36 @@ import {
 
 import {
   useRouter,
+  useSearchParams,
 } from "next/navigation";
 
 import { API_URL } from "@/lib/api";
 
 export default function LoginPage() {
-  const router =
-    useRouter();
+  const router = useRouter();
 
-  const [
-    email,
-    setEmail,
-  ] = useState("");
+  const searchParams = useSearchParams();
 
-  const [
-    password,
-    setPassword,
-  ] = useState("");
+  const redirectTo =
+    searchParams.get("redirect") ||
+    "/account";
+
+  const [email, setEmail] =
+    useState("");
+
+  const [password, setPassword] =
+    useState("");
 
   const [
     showPassword,
     setShowPassword,
   ] = useState(false);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [
-    error,
-    setError,
-  ] = useState("");
+  const [error, setError] =
+    useState("");
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -60,10 +58,15 @@ export default function LoginPage() {
         `${API_URL}/customer/login`,
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+            "Content-Type":
+              "application/json",
+
+            Accept:
+              "application/json",
           },
+
           body: JSON.stringify({
             email,
             password,
@@ -99,29 +102,47 @@ export default function LoginPage() {
         return;
       }
 
+      if (!data.token) {
+        setError(
+          "Login token was not received."
+        );
+        return;
+      }
+
       localStorage.setItem(
         "customer_token",
         data.token
       );
 
-      localStorage.setItem(
-        "customer_user",
-        JSON.stringify(
-          data.user
+      if (data.user) {
+        localStorage.setItem(
+          "customer_user",
+          JSON.stringify(
+            data.user
+          )
+        );
+      }
+
+      window.dispatchEvent(
+        new Event(
+          "banglesmart:customer-refresh"
         )
       );
 
-      window.dispatchEvent(new Event("banglesmart:customer-refresh"));
-
-      router.push(
-        "/account"
-      );
+      router.push(redirectTo);
 
       router.refresh();
-    } catch {
+
+    } catch (error) {
+      console.error(
+        "Login error:",
+        error
+      );
+
       setError(
         "Unable to connect to server."
       );
+
     } finally {
       setLoading(false);
     }
@@ -145,8 +166,7 @@ export default function LoginPage() {
             </h1>
 
             <p className="mt-2 text-sm text-gray-500">
-              Login to your
-              BanglesMart account.
+              Login to your BanglesMart account.
             </p>
 
           </div>
@@ -218,13 +238,9 @@ export default function LoginPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
                 >
                   {showPassword ? (
-                    <EyeOff
-                      size={18}
-                    />
+                    <EyeOff size={18} />
                   ) : (
-                    <Eye
-                      size={18}
-                    />
+                    <Eye size={18} />
                   )}
                 </button>
 
@@ -245,7 +261,14 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-4 text-center">
-            <Link href="/forgot-password" className="text-sm font-semibold text-[#8f0828] hover:underline">Forgot password?</Link>
+
+            <Link
+              href="/forgot-password"
+              className="text-sm font-semibold text-[#8f0828] hover:underline"
+            >
+              Forgot password?
+            </Link>
+
           </div>
 
           <p className="mt-6 text-center text-sm text-gray-500">

@@ -32,7 +32,7 @@ async function getCart(userId) {
         WHERE user_id = ?
         LIMIT 1
       `,
-      [userId]
+      [userId],
     )
   )[0];
 
@@ -58,7 +58,7 @@ async function getCart(userId) {
           NOW()
         )
       `,
-      [userId]
+      [userId],
     );
 
     cartRow = (
@@ -69,7 +69,7 @@ async function getCart(userId) {
           WHERE id = ?
           LIMIT 1
         `,
-        [result.insertId]
+        [result.insertId],
       )
     )[0];
   }
@@ -155,7 +155,7 @@ async function getCart(userId) {
 
       ORDER BY ci.id DESC
     `,
-    [cartRow.id]
+    [cartRow.id],
   );
 
   /*
@@ -167,33 +167,19 @@ async function getCart(userId) {
   let subtotal = 0;
 
   const items = rows.map((row) => {
-    const quantity = Number(
-      row.cart_quantity || 0
-    );
+    const quantity = Number(row.cart_quantity || 0);
 
-    const mrp = Number(
-      row.variant_mrp || 0
-    );
+    const mrp = Number(row.variant_mrp || 0);
 
-    const sellingPrice = Number(
-      row.variant_selling_price || 0
-    );
+    const sellingPrice = Number(row.variant_selling_price || 0);
 
-    const inventoryQuantity = Number(
-      row.inventory_quantity || 0
-    );
+    const inventoryQuantity = Number(row.inventory_quantity || 0);
 
-    const reservedQuantity = Number(
-      row.reserved_quantity || 0
-    );
+    const reservedQuantity = Number(row.reserved_quantity || 0);
 
-    const availableQuantity = Math.max(
-      0,
-      inventoryQuantity - reservedQuantity
-    );
+    const availableQuantity = Math.max(0, inventoryQuantity - reservedQuantity);
 
-    const lineTotal =
-      sellingPrice * quantity;
+    const lineTotal = sellingPrice * quantity;
 
     subtotal += lineTotal;
 
@@ -207,13 +193,9 @@ async function getCart(userId) {
       ? {
           id: row.image_id,
           image: row.image_path,
-          alt_text:
-            row.image_alt_text ||
-            row.product_name,
-          sort_order:
-            Number(row.image_sort_order || 0),
-          is_primary:
-            Boolean(row.image_is_primary),
+          alt_text: row.image_alt_text || row.product_name,
+          sort_order: Number(row.image_sort_order || 0),
+          is_primary: Boolean(row.image_is_primary),
         }
       : null;
 
@@ -228,16 +210,13 @@ async function getCart(userId) {
 
       cart_id: row.cart_id,
 
-      product_variant_id:
-        row.product_variant_id,
+      product_variant_id: row.product_variant_id,
 
       quantity,
 
-      created_at:
-        row.cart_created_at,
+      created_at: row.cart_created_at,
 
-      updated_at:
-        row.cart_updated_at,
+      updated_at: row.cart_updated_at,
 
       line_total: lineTotal,
 
@@ -256,11 +235,9 @@ async function getCart(userId) {
 
         color_id: row.variant_color_id,
 
-        status:
-          row.variant_status,
+        status: row.variant_status,
 
-        available_quantity:
-          availableQuantity,
+        available_quantity: availableQuantity,
 
         /*
         |--------------------------------------------------------------------------
@@ -275,11 +252,9 @@ async function getCart(userId) {
 
           slug: row.product_slug,
 
-          status:
-            row.product_status,
+          status: row.product_status,
 
-          primary_image:
-            primaryImage,
+          primary_image: primaryImage,
         },
 
         /*
@@ -292,12 +267,9 @@ async function getCart(userId) {
           ? {
               id: row.size_id,
 
-              name:
-                row.size_name,
+              name: row.size_name,
 
-              display_name:
-                row.size_display_name ||
-                row.size_name,
+              display_name: row.size_display_name || row.size_name,
             }
           : null,
 
@@ -311,15 +283,11 @@ async function getCart(userId) {
           ? {
               id: row.color_id,
 
-              name:
-                row.color_name,
+              name: row.color_name,
 
-              display_name:
-                row.color_display_name ||
-                row.color_name,
+              display_name: row.color_display_name || row.color_name,
 
-              hex_code:
-                row.color_hex_code || null,
+              hex_code: row.color_hex_code || null,
             }
           : null,
       },
@@ -333,9 +301,8 @@ async function getCart(userId) {
   */
 
   const itemCount = items.reduce(
-    (total, item) =>
-      total + Number(item.quantity),
-    0
+    (total, item) => total + Number(item.quantity),
+    0,
   );
 
   /*
@@ -369,25 +336,16 @@ async function getCart(userId) {
 
 export async function index(req, res) {
   try {
-    const data = await getCart(
-      req.user.id
-    );
+    const data = await getCart(req.user.id);
 
     return ok(res, {
       success: true,
       data,
     });
   } catch (error) {
-    console.error(
-      "GET CART ERROR:",
-      error
-    );
+    console.error("GET CART ERROR:", error);
 
-    return fail(
-      res,
-      "Unable to load cart.",
-      500
-    );
+    return fail(res, "Unable to load cart.", 500);
   }
 }
 
@@ -401,14 +359,9 @@ export async function index(req, res) {
 
 export async function store(req, res) {
   try {
-    const {
-    product_variant_id,
-    product_id,
-    quantity = 1,
-  } = req.body || {};
+    const { product_variant_id, product_id, quantity = 1 } = req.body || {};
 
-    const requestedQuantity =
-      Number(quantity);
+    const requestedQuantity = Number(quantity);
 
     /*
     |--------------------------------------------------------------------------
@@ -416,22 +369,21 @@ export async function store(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    let resolvedVariantId =
-  product_variant_id
-    ? Number(product_variant_id)
-    : null;
+    let resolvedVariantId = product_variant_id
+      ? Number(product_variant_id)
+      : null;
 
-/*
+    /*
 |--------------------------------------------------------------------------
 | If frontend sends product_id instead of a variant,
 | automatically select the first available variant.
 |--------------------------------------------------------------------------
 */
 
-if (!resolvedVariantId && product_id) {
-  const availableVariant = (
-    await query(
-      `
+    if (!resolvedVariantId && product_id) {
+      const availableVariant = (
+        await query(
+          `
         SELECT
           pv.id
 
@@ -458,48 +410,30 @@ if (!resolvedVariantId && product_id) {
 
         LIMIT 1
       `,
-      [product_id]
-    )
-  )[0];
+          [product_id],
+        )
+      )[0];
 
-  if (!availableVariant) {
-          return fail(
-            res,
-            "This product is currently out of stock.",
-            422
-          );
-        }
-
-        resolvedVariantId =
-          Number(availableVariant.id);
+      if (!availableVariant) {
+        return fail(res, "This product is currently out of stock.", 422);
       }
 
-      /*
+      resolvedVariantId = Number(availableVariant.id);
+    }
+
+    /*
       |--------------------------------------------------------------------------
       | Variant is still required if neither
       | product_id nor product_variant_id was supplied.
       |--------------------------------------------------------------------------
       */
 
-      if (!resolvedVariantId) {
-        return fail(
-          res,
-          "Product variant is required.",
-          422
-        );
-      }
+    if (!resolvedVariantId) {
+      return fail(res, "Product variant is required.", 422);
+    }
 
-    if (
-      !Number.isInteger(
-        requestedQuantity
-      ) ||
-      requestedQuantity < 1
-    ) {
-      return fail(
-        res,
-        "Quantity must be at least 1.",
-        422
-      );
+    if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
+      return fail(res, "Quantity must be at least 1.", 422);
     }
 
     /*
@@ -537,16 +471,12 @@ if (!resolvedVariantId && product_id) {
 
           LIMIT 1
         `,
-        [resolvedVariantId]
+        [resolvedVariantId],
       )
     )[0];
 
     if (!variant) {
-      return fail(
-        res,
-        "Variant not found.",
-        404
-      );
+      return fail(res, "Variant not found.", 404);
     }
 
     /*
@@ -555,16 +485,11 @@ if (!resolvedVariantId && product_id) {
     |--------------------------------------------------------------------------
     */
 
-    const availableQuantity =
-      Math.max(
-        0,
-        Number(
-          variant.inventory_quantity || 0
-        ) -
-          Number(
-            variant.reserved_quantity || 0
-          )
-      );
+    const availableQuantity = Math.max(
+      0,
+      Number(variant.inventory_quantity || 0) -
+        Number(variant.reserved_quantity || 0),
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -580,7 +505,7 @@ if (!resolvedVariantId && product_id) {
           WHERE user_id = ?
           LIMIT 1
         `,
-        [req.user.id]
+        [req.user.id],
       )
     )[0];
 
@@ -606,7 +531,7 @@ if (!resolvedVariantId && product_id) {
             NOW()
           )
         `,
-        [req.user.id]
+        [req.user.id],
       );
 
       cartRow = {
@@ -635,21 +560,13 @@ if (!resolvedVariantId && product_id) {
 
           LIMIT 1
         `,
-        [
-          cartRow.id,
-          resolvedVariantId,
-        ]
+        [cartRow.id, resolvedVariantId],
       )
     )[0];
 
-    const existingQuantity =
-      Number(
-        existing?.quantity || 0
-      );
+    const existingQuantity = Number(existing?.quantity || 0);
 
-    const finalQuantity =
-      existingQuantity +
-      requestedQuantity;
+    const finalQuantity = existingQuantity + requestedQuantity;
 
     /*
     |--------------------------------------------------------------------------
@@ -657,15 +574,8 @@ if (!resolvedVariantId && product_id) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      finalQuantity >
-      availableQuantity
-    ) {
-      return fail(
-        res,
-        `Only ${availableQuantity} item(s) available.`,
-        422
-      );
+    if (finalQuantity > availableQuantity) {
+      return fail(res, `Only ${availableQuantity} item(s) available.`, 422);
     }
 
     /*
@@ -685,20 +595,15 @@ if (!resolvedVariantId && product_id) {
 
           WHERE id = ?
         `,
-        [
-          finalQuantity,
-          existing.id,
-        ]
+        [finalQuantity, existing.id],
       );
-    }
+    } else {
 
     /*
     |--------------------------------------------------------------------------
     | Insert new item
     |--------------------------------------------------------------------------
     */
-
-    else {
       await query(
         `
           INSERT INTO cart_items
@@ -718,11 +623,7 @@ if (!resolvedVariantId && product_id) {
             NOW()
           )
         `,
-        [
-          cartRow.id,
-          resolvedVariantId,
-          requestedQuantity,
-        ]
+        [cartRow.id, resolvedVariantId, requestedQuantity],
       );
     }
 
@@ -732,9 +633,7 @@ if (!resolvedVariantId && product_id) {
     |--------------------------------------------------------------------------
     */
 
-    const data = await getCart(
-      req.user.id
-    );
+    const data = await getCart(req.user.id);
 
     return ok(
       res,
@@ -742,19 +641,12 @@ if (!resolvedVariantId && product_id) {
         success: true,
         data,
       },
-      201
+      201,
     );
   } catch (error) {
-    console.error(
-      "ADD TO CART ERROR:",
-      error
-    );
+    console.error("ADD TO CART ERROR:", error);
 
-    return fail(
-      res,
-      "Unable to add product to cart.",
-      500
-    );
+    return fail(res, "Unable to add product to cart.", 500);
   }
 }
 
@@ -768,9 +660,7 @@ if (!resolvedVariantId && product_id) {
 
 export async function update(req, res) {
   try {
-    const quantity = Number(
-      req.body?.quantity
-    );
+    const quantity = Number(req.body?.quantity);
 
     /*
     |--------------------------------------------------------------------------
@@ -778,15 +668,8 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      !Number.isInteger(quantity) ||
-      quantity < 1
-    ) {
-      return fail(
-        res,
-        "Quantity must be at least 1.",
-        422
-      );
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return fail(res, "Quantity must be at least 1.", 422);
     }
 
     /*
@@ -814,19 +697,12 @@ export async function update(req, res) {
 
           LIMIT 1
         `,
-        [
-          req.params.id,
-          req.user.id,
-        ]
+        [req.params.id, req.user.id],
       )
     )[0];
 
     if (!item) {
-      return fail(
-        res,
-        "Cart item not found.",
-        404
-      );
+      return fail(res, "Cart item not found.", 404);
     }
 
     /*
@@ -856,16 +732,12 @@ export async function update(req, res) {
 
           LIMIT 1
         `,
-        [item.product_variant_id]
+        [item.product_variant_id],
       )
     )[0];
 
     if (!variant) {
-      return fail(
-        res,
-        "Product variant not found.",
-        404
-      );
+      return fail(res, "Product variant not found.", 404);
     }
 
     /*
@@ -874,26 +746,14 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const availableQuantity =
-      Math.max(
-        0,
-        Number(
-          variant.inventory_quantity || 0
-        ) -
-          Number(
-            variant.reserved_quantity || 0
-          )
-      );
+    const availableQuantity = Math.max(
+      0,
+      Number(variant.inventory_quantity || 0) -
+        Number(variant.reserved_quantity || 0),
+    );
 
-    if (
-      quantity >
-      availableQuantity
-    ) {
-      return fail(
-        res,
-        `Only ${availableQuantity} item(s) available.`,
-        422
-      );
+    if (quantity > availableQuantity) {
+      return fail(res, `Only ${availableQuantity} item(s) available.`, 422);
     }
 
     /*
@@ -912,10 +772,7 @@ export async function update(req, res) {
 
         WHERE id = ?
       `,
-      [
-        quantity,
-        item.id,
-      ]
+      [quantity, item.id],
     );
 
     /*
@@ -924,25 +781,16 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const data = await getCart(
-      req.user.id
-    );
+    const data = await getCart(req.user.id);
 
     return ok(res, {
       success: true,
       data,
     });
   } catch (error) {
-    console.error(
-      "UPDATE CART ERROR:",
-      error
-    );
+    console.error("UPDATE CART ERROR:", error);
 
-    return fail(
-      res,
-      "Unable to update cart.",
-      500
-    );
+    return fail(res, "Unable to update cart.", 500);
   }
 }
 
@@ -969,10 +817,7 @@ export async function destroy(req, res) {
 
           AND c.user_id = ?
       `,
-      [
-        req.params.id,
-        req.user.id,
-      ]
+      [req.params.id, req.user.id],
     );
 
     /*
@@ -981,25 +826,16 @@ export async function destroy(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const data = await getCart(
-      req.user.id
-    );
+    const data = await getCart(req.user.id);
 
     return ok(res, {
       success: true,
       data,
     });
   } catch (error) {
-    console.error(
-      "REMOVE CART ITEM ERROR:",
-      error
-    );
+    console.error("REMOVE CART ITEM ERROR:", error);
 
-    return fail(
-      res,
-      "Unable to remove cart item.",
-      500
-    );
+    return fail(res, "Unable to remove cart item.", 500);
   }
 }
 
@@ -1024,7 +860,7 @@ export async function clear(req, res) {
 
         WHERE c.user_id = ?
       `,
-      [req.user.id]
+      [req.user.id],
     );
 
     /*
@@ -1033,24 +869,15 @@ export async function clear(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const data = await getCart(
-      req.user.id
-    );
+    const data = await getCart(req.user.id);
 
     return ok(res, {
       success: true,
       data,
     });
   } catch (error) {
-    console.error(
-      "CLEAR CART ERROR:",
-      error
-    );
+    console.error("CLEAR CART ERROR:", error);
 
-    return fail(
-      res,
-      "Unable to clear cart.",
-      500
-    );
+    return fail(res, "Unable to clear cart.", 500);
   }
-} 
+}
