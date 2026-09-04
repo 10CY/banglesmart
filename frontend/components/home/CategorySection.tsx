@@ -237,7 +237,7 @@ export default function CategorySection() {
           </p>
 
           <h2 className="mt-3 text-3xl font-semibold text-gray-900 md:text-4xl">
-            Shop By Category
+            Shop By Categories
           </h2>
 
           <p className="mt-2 text-gray-500">
