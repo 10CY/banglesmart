@@ -126,9 +126,7 @@ type CategoryFiltersProps = {
  *   └── Child
  */
 
-function normalizeCategories(
-  input: FilterCategory[]
-): FilterCategory[] {
+function normalizeCategories(input: FilterCategory[]): FilterCategory[] {
   if (!Array.isArray(input)) {
     return [];
   }
@@ -141,7 +139,7 @@ function normalizeCategories(
       category &&
       typeof category.id !== "undefined" &&
       typeof category.name === "string" &&
-      typeof category.slug === "string"
+      typeof category.slug === "string",
   );
 
   /*
@@ -149,8 +147,7 @@ function normalizeCategories(
    */
   const alreadyNested = validCategories.some(
     (category) =>
-      Array.isArray(category.children) &&
-      category.children.length > 0
+      Array.isArray(category.children) && category.children.length > 0,
   );
 
   /*
@@ -160,15 +157,12 @@ function normalizeCategories(
     return validCategories
       .filter(
         (category) =>
-          category.parent_id === null ||
-          category.parent_id === undefined
+          category.parent_id === null || category.parent_id === undefined,
       )
       .map((parent) => ({
         ...parent,
 
-        children: Array.isArray(parent.children)
-          ? parent.children
-          : [],
+        children: Array.isArray(parent.children) ? parent.children : [],
       }));
   }
 
@@ -177,8 +171,7 @@ function normalizeCategories(
    */
   const parents = validCategories.filter(
     (category) =>
-      category.parent_id === null ||
-      category.parent_id === undefined
+      category.parent_id === null || category.parent_id === undefined,
   );
 
   return parents.map((parent) => {
@@ -186,7 +179,7 @@ function normalizeCategories(
       (child) =>
         child.parent_id !== null &&
         child.parent_id !== undefined &&
-        Number(child.parent_id) === Number(parent.id)
+        Number(child.parent_id) === Number(parent.id),
     );
 
     return {
@@ -239,14 +232,13 @@ export default function CategoryFilters({
    */
   const normalizedCategories = useMemo(
     () => normalizeCategories(categories),
-    [categories]
+    [categories],
   );
 
   /*
    * Track which parent categories are open.
    */
-  const [openCategories, setOpenCategories] =
-    useState<number[]>([]);
+  const [openCategories, setOpenCategories] = useState<number[]>([]);
 
   /* =======================================================
      AUTOMATICALLY OPEN ACTIVE PARENT
@@ -257,15 +249,11 @@ export default function CategoryFilters({
       return;
     }
 
-    const activeParent =
-      normalizedCategories.find(
-        (parent) =>
-          parent.slug === category ||
-          parent.children?.some(
-            (child) =>
-              child.slug === category
-          )
-      );
+    const activeParent = normalizedCategories.find(
+      (parent) =>
+        parent.slug === category ||
+        parent.children?.some((child) => child.slug === category),
+    );
 
     if (
       activeParent &&
@@ -273,44 +261,26 @@ export default function CategoryFilters({
       activeParent.children.length > 0
     ) {
       setOpenCategories((current) => {
-        if (
-          current.includes(activeParent.id)
-        ) {
+        if (current.includes(activeParent.id)) {
           return current;
         }
 
-        return [
-          ...current,
-          activeParent.id,
-        ];
+        return [...current, activeParent.id];
       });
     }
-  }, [
-    category,
-    normalizedCategories,
-  ]);
+  }, [category, normalizedCategories]);
 
   /* =======================================================
      TOGGLE PARENT
   ======================================================= */
 
-  function toggleCategory(
-    categoryId: number
-  ) {
+  function toggleCategory(categoryId: number) {
     setOpenCategories((current) => {
-      if (
-        current.includes(categoryId)
-      ) {
-        return current.filter(
-          (id) =>
-            id !== categoryId
-        );
+      if (current.includes(categoryId)) {
+        return current.filter((id) => id !== categoryId);
       }
 
-      return [
-        ...current,
-        categoryId,
-      ];
+      return [...current, categoryId];
     });
   }
 
@@ -318,9 +288,7 @@ export default function CategoryFilters({
      SELECT PARENT
   ======================================================= */
 
-  function selectParent(
-    parent: FilterCategory
-  ) {
+  function selectParent(parent: FilterCategory) {
     /*
      * If the page provides setCategory,
      * update local/page state.
@@ -331,29 +299,19 @@ export default function CategoryFilters({
       /*
        * /shop page can navigate directly.
        */
-      router.push(
-        `/shop/${parent.slug}`
-      );
+      router.push(`/shop/${parent.slug}`);
     }
 
     /*
      * Open parent when selected.
      */
-    if (
-      parent.children &&
-      parent.children.length > 0
-    ) {
+    if (parent.children && parent.children.length > 0) {
       setOpenCategories((current) => {
-        if (
-          current.includes(parent.id)
-        ) {
+        if (current.includes(parent.id)) {
           return current;
         }
 
-        return [
-          ...current,
-          parent.id,
-        ];
+        return [...current, parent.id];
       });
     }
   }
@@ -362,10 +320,7 @@ export default function CategoryFilters({
      SELECT CHILD
   ======================================================= */
 
-  function selectChild(
-    child: FilterCategory,
-    parent: FilterCategory
-  ) {
+  function selectChild(child: FilterCategory, parent: FilterCategory) {
     /*
      * If page provides setCategory,
      * update it.
@@ -378,9 +333,7 @@ export default function CategoryFilters({
        *
        * /shop/glass-bangles/bridal-glass-bangles
        */
-      router.push(
-        `/shop/${parent.slug}/${child.slug}`
-      );
+      router.push(`/shop/${parent.slug}/${child.slug}`);
     }
   }
 
@@ -412,28 +365,19 @@ export default function CategoryFilters({
      CHECK ACTIVE PARENT
   ======================================================= */
 
-  function isParentActive(
-    parent: FilterCategory
-  ) {
+  function isParentActive(parent: FilterCategory) {
     if (category === parent.slug) {
       return true;
     }
 
-    return Boolean(
-      parent.children?.some(
-        (child) =>
-          child.slug === category
-      )
-    );
+    return Boolean(parent.children?.some((child) => child.slug === category));
   }
 
   /* =======================================================
      CHECK ACTIVE CHILD
   ======================================================= */
 
-  function isChildActive(
-    child: FilterCategory
-  ) {
+  function isChildActive(child: FilterCategory) {
     return category === child.slug;
   }
 
@@ -441,32 +385,24 @@ export default function CategoryFilters({
      ACTIVE FILTERS
   ======================================================= */
 
-  const hasActiveFilters =
-    Boolean(
-      category ||
-      search ||
-      minPrice ||
-      maxPrice ||
-      sort ||
-      newArrival ||
-      bestSeller ||
-      featured
-    );
+  const hasActiveFilters = Boolean(
+    category ||
+    search ||
+    minPrice ||
+    maxPrice ||
+    sort ||
+    newArrival ||
+    bestSeller ||
+    featured,
+  );
 
   /* =======================================================
      RENDER
   ======================================================= */
 
   return (
-    <aside
-      className={
-        mobile
-          ? "w-full"
-          : "w-full"
-      }
-    >
+    <aside className={mobile ? "w-full" : "w-full"}>
       <div className="space-y-7">
-
         {/* =================================================
             SEARCH
         ================================================= */}
@@ -485,11 +421,7 @@ export default function CategoryFilters({
             <input
               type="text"
               value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setSearch(event.target.value)}
               placeholder="Search bangles..."
               className="h-11 w-full rounded-xl border border-[#e3dbd0] bg-white pl-10 pr-4 text-sm text-[#222] outline-none transition placeholder:text-[#aaa] focus:border-[#c9a227] focus:ring-2 focus:ring-[#c9a227]/10"
             />
@@ -508,10 +440,7 @@ export default function CategoryFilters({
 
             {typeof productCount === "number" && (
               <span className="text-[10px] text-[#999]">
-                {productCount}{" "}
-                {productCount === 1
-                  ? "product"
-                  : "products"}
+                {productCount} {productCount === 1 ? "product" : "products"}
               </span>
             )}
 
@@ -527,25 +456,20 @@ export default function CategoryFilters({
           </div>
 
           <div className="space-y-1">
-
             {/* =================================================
                 ALL CATEGORIES
             ================================================= */}
 
             <button
               type="button"
-              onClick={
-                selectAllCategories
-              }
+              onClick={selectAllCategories}
               className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left transition ${
                 !category
                   ? "bg-[#f7efe3] text-[#8f0828]"
                   : "text-[#444] hover:bg-[#faf7f2]"
               }`}
             >
-              <span className="text-sm font-medium">
-                All Categories
-              </span>
+              <span className="text-sm font-medium">All Categories</span>
 
               {!category && (
                 <span className="h-1.5 w-1.5 rounded-full bg-[#c9a227]" />
@@ -561,171 +485,114 @@ export default function CategoryFilters({
                 No categories found.
               </div>
             ) : (
-              normalizedCategories.map(
-                (parent) => {
-                  const hasChildren =
-                    Array.isArray(
-                      parent.children
-                    ) &&
-                    parent.children.length >
-                      0;
+              normalizedCategories.map((parent) => {
+                const hasChildren =
+                  Array.isArray(parent.children) && parent.children.length > 0;
 
-                  const isOpen =
-                    openCategories.includes(
-                      parent.id
-                    );
+                const isOpen = openCategories.includes(parent.id);
 
-                  const active =
-                    isParentActive(
-                      parent
-                    );
+                const active = isParentActive(parent);
 
-                  return (
-                    <div
-                      key={parent.id}
-                      className="overflow-hidden"
-                    >
-
-                      {/* =====================================
+                return (
+                  <div key={parent.id} className="overflow-hidden">
+                    {/* =====================================
                           PARENT ROW
                       ===================================== */}
 
-                      <div
-                        className={`flex items-center rounded-xl transition ${
+                    <div
+                      className={`flex items-center rounded-xl transition ${
+                        active ? "bg-[#faf4eb]" : "hover:bg-[#faf7f2]"
+                      }`}
+                    >
+                      {/* PARENT NAME */}
+
+                      <button
+                        type="button"
+                        onClick={() => selectParent(parent)}
+                        className={`min-w-0 flex-1 px-3.5 py-3 text-left text-sm transition ${
                           active
-                            ? "bg-[#faf4eb]"
-                            : "hover:bg-[#faf7f2]"
+                            ? "font-medium text-[#8f0828]"
+                            : "text-[#4d4d4d]"
                         }`}
                       >
+                        <span className="block truncate">{parent.name}</span>
+                      </button>
 
-                        {/* PARENT NAME */}
+                      {/* EXPAND / COLLAPSE */}
 
+                      {hasChildren ? (
                         <button
                           type="button"
-                          onClick={() =>
-                            selectParent(
-                              parent
-                            )
+                          aria-label={
+                            isOpen
+                              ? `Collapse ${parent.name}`
+                              : `Expand ${parent.name}`
                           }
-                          className={`min-w-0 flex-1 px-3.5 py-3 text-left text-sm transition ${
+                          onClick={() => toggleCategory(parent.id)}
+                          className={`mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
                             active
-                              ? "font-medium text-[#8f0828]"
-                              : "text-[#4d4d4d]"
+                              ? "text-[#8f0828]"
+                              : "text-[#888] hover:bg-white hover:text-[#8f0828]"
                           }`}
                         >
-                          <span className="block truncate">
-                            {parent.name}
-                          </span>
+                          {isOpen ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
                         </button>
+                      ) : (
+                        <span className="mr-4 text-sm text-[#999]">→</span>
+                      )}
+                    </div>
 
-                        {/* EXPAND / COLLAPSE */}
-
-                        {hasChildren ? (
-                          <button
-                            type="button"
-                            aria-label={
-                              isOpen
-                                ? `Collapse ${parent.name}`
-                                : `Expand ${parent.name}`
-                            }
-                            onClick={() =>
-                              toggleCategory(
-                                parent.id
-                              )
-                            }
-                            className={`mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
-                              active
-                                ? "text-[#8f0828]"
-                                : "text-[#888] hover:bg-white hover:text-[#8f0828]"
-                            }`}
-                          >
-                            {isOpen ? (
-                              <ChevronDown
-                                size={16}
-                              />
-                            ) : (
-                              <ChevronRight
-                                size={16}
-                              />
-                            )}
-                          </button>
-                        ) : (
-                          <span className="mr-4 text-sm text-[#999]">
-                            →
-                          </span>
-                        )}
-
-                      </div>
-
-                      {/* =====================================
+                    {/* =====================================
                           CHILDREN
                       ===================================== */}
 
-                      {hasChildren &&
-                        isOpen && (
-                          <div className="ml-4 border-l border-[#e9e0d4] pl-3">
+                    {hasChildren && isOpen && (
+                      <div className="ml-4 border-l border-[#e9e0d4] pl-3">
+                        {parent.children!.map((child) => {
+                          const childActive = isChildActive(child);
 
-                            {parent.children!.map(
-                              (child) => {
-                                const childActive =
-                                  isChildActive(
-                                    child
-                                  );
+                          return (
+                            <button
+                              key={child.id}
+                              type="button"
+                              onClick={() => selectChild(child, parent)}
+                              className={`group flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition ${
+                                childActive
+                                  ? "bg-[#f8efe4] text-[#8f0828]"
+                                  : "text-[#666] hover:bg-[#faf7f2] hover:text-[#8f0828]"
+                              }`}
+                            >
+                              <span
+                                className={`min-w-0 truncate text-[13px] ${
+                                  childActive ? "font-medium" : ""
+                                }`}
+                              >
+                                {child.name}
+                              </span>
 
-                                return (
-                                  <button
-                                    key={
-                                      child.id
-                                    }
-                                    type="button"
-                                    onClick={() =>
-                                      selectChild(
-                                        child,
-                                        parent
-                                      )
-                                    }
-                                    className={`group flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition ${
-                                      childActive
-                                        ? "bg-[#f8efe4] text-[#8f0828]"
-                                        : "text-[#666] hover:bg-[#faf7f2] hover:text-[#8f0828]"
-                                    }`}
-                                  >
-                                    <span
-                                      className={`min-w-0 truncate text-[13px] ${
-                                        childActive
-                                          ? "font-medium"
-                                          : ""
-                                      }`}
-                                    >
-                                      {
-                                        child.name
-                                      }
-                                    </span>
+                              {childActive && (
+                                <span className="ml-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" />
+                              )}
 
-                                    {childActive && (
-                                      <span className="ml-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" />
-                                    )}
-
-                                    {!childActive && (
-                                      <ChevronRight
-                                        size={14}
-                                        className="ml-2 shrink-0 text-[#aaa] opacity-0 transition group-hover:opacity-100"
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              }
-                            )}
-
-                          </div>
-                        )}
-
-                    </div>
-                  );
-                }
-              )
+                              {!childActive && (
+                                <ChevronRight
+                                  size={14}
+                                  className="ml-2 shrink-0 text-[#aaa] opacity-0 transition group-hover:opacity-100"
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
-
           </div>
         </div>
 
@@ -739,16 +606,11 @@ export default function CategoryFilters({
           </label>
 
           <div className="grid grid-cols-2 gap-2">
-
             <input
               type="number"
               min="0"
               value={minPrice}
-              onChange={(event) =>
-                setMinPrice(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setMinPrice(event.target.value)}
               placeholder="Min ₹"
               className="h-10 w-full rounded-lg border border-[#e3dbd0] bg-white px-3 text-xs text-[#222] outline-none transition focus:border-[#c9a227]"
             />
@@ -757,15 +619,10 @@ export default function CategoryFilters({
               type="number"
               min="0"
               value={maxPrice}
-              onChange={(event) =>
-                setMaxPrice(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setMaxPrice(event.target.value)}
               placeholder="Max ₹"
               className="h-10 w-full rounded-lg border border-[#e3dbd0] bg-white px-3 text-xs text-[#222] outline-none transition focus:border-[#c9a227]"
             />
-
           </div>
         </div>
 
@@ -779,38 +636,24 @@ export default function CategoryFilters({
           </label>
 
           <div className="relative">
-
             <select
               value={sort}
-              onChange={(event) =>
-                setSort(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setSort(event.target.value)}
               className="h-11 w-full appearance-none rounded-xl border border-[#e3dbd0] bg-white px-3.5 pr-9 text-sm text-[#444] outline-none transition focus:border-[#c9a227]"
             >
-              <option value="">
-                Recommended
-              </option>
+              <option value="">Recommended</option>
 
-              <option value="price_low">
-                Price: Low to High
-              </option>
+              <option value="price_low">Price: Low to High</option>
 
-              <option value="price_high">
-                Price: High to Low
-              </option>
+              <option value="price_high">Price: High to Low</option>
 
-              <option value="name">
-                Name: A to Z
-              </option>
+              <option value="name">Name: A to Z</option>
             </select>
 
             <ChevronDown
               size={15}
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#888]"
             />
-
           </div>
         </div>
 
@@ -824,22 +667,15 @@ export default function CategoryFilters({
           </label>
 
           <div className="space-y-1">
-
             {/* NEW ARRIVALS */}
 
             <label className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#faf7f2]">
-              <span className="text-sm text-[#555]">
-                New Arrivals
-              </span>
+              <span className="text-sm text-[#555]">New Arrivals</span>
 
               <input
                 type="checkbox"
                 checked={newArrival}
-                onChange={(event) =>
-                  setNewArrival(
-                    event.target.checked
-                  )
-                }
+                onChange={(event) => setNewArrival(event.target.checked)}
                 className="h-4 w-4 accent-[#8f0828]"
               />
             </label>
@@ -847,18 +683,12 @@ export default function CategoryFilters({
             {/* BEST SELLERS */}
 
             <label className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#faf7f2]">
-              <span className="text-sm text-[#555]">
-                Best Sellers
-              </span>
+              <span className="text-sm text-[#555]">Best Sellers</span>
 
               <input
                 type="checkbox"
                 checked={bestSeller}
-                onChange={(event) =>
-                  setBestSeller(
-                    event.target.checked
-                  )
-                }
+                onChange={(event) => setBestSeller(event.target.checked)}
                 className="h-4 w-4 accent-[#8f0828]"
               />
             </label>
@@ -866,22 +696,15 @@ export default function CategoryFilters({
             {/* FEATURED */}
 
             <label className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#faf7f2]">
-              <span className="text-sm text-[#555]">
-                Featured
-              </span>
+              <span className="text-sm text-[#555]">Featured</span>
 
               <input
                 type="checkbox"
                 checked={featured}
-                onChange={(event) =>
-                  setFeatured(
-                    event.target.checked
-                  )
-                }
+                onChange={(event) => setFeatured(event.target.checked)}
                 className="h-4 w-4 accent-[#8f0828]"
               />
             </label>
-
           </div>
         </div>
 
@@ -892,7 +715,6 @@ export default function CategoryFilters({
         {hasActiveFilters && (
           <div className="rounded-xl bg-[#faf5ed] px-3.5 py-3">
             <div className="flex items-center justify-between gap-3">
-
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#999]">
                   Filters Applied
@@ -900,10 +722,7 @@ export default function CategoryFilters({
 
                 {typeof productCount === "number" && (
                   <p className="mt-1 text-xs text-[#666]">
-                    {productCount}{" "}
-                    {productCount === 1
-                      ? "product"
-                      : "products"}{" "}
+                    {productCount} {productCount === 1 ? "product" : "products"}{" "}
                     found
                   </p>
                 )}
@@ -916,7 +735,6 @@ export default function CategoryFilters({
               >
                 Clear
               </button>
-
             </div>
           </div>
         )}
@@ -942,18 +760,11 @@ export default function CategoryFilters({
 
         {mobile && (
           <div className="flex items-center gap-2 rounded-xl bg-[#faf5ed] p-3 text-xs text-[#777]">
-            <SlidersHorizontal
-              size={15}
-              className="shrink-0 text-[#c9a227]"
-            />
+            <SlidersHorizontal size={15} className="shrink-0 text-[#c9a227]" />
 
-            <span>
-              Choose a category or
-              refine your collection.
-            </span>
+            <span>Choose a category or refine your collection.</span>
           </div>
         )}
-
       </div>
     </aside>
   );
