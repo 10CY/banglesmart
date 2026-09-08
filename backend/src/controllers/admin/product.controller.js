@@ -11,6 +11,7 @@ import { imageUrl } from "../../utils/serialize.js";
 
 const productFields = [
   "category_id",
+  "material_id",
   "name",
   "sku",
   "short_description",
@@ -33,28 +34,17 @@ const productFields = [
 */
 
 function toNumber(value, fallback = 0) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return fallback;
   }
 
   const n = Number(value);
 
-  return Number.isFinite(n)
-    ? n
-    : fallback;
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function toBool(value) {
-  return (
-    value === true ||
-    value === 1 ||
-    value === "1" ||
-    value === "true"
-  );
+  return value === true || value === 1 || value === "1" || value === "true";
 }
 
 /*
@@ -64,10 +54,7 @@ function toBool(value) {
 */
 
 function nullableString(value) {
-  if (
-    value === undefined ||
-    value === null
-  ) {
+  if (value === undefined || value === null) {
     return null;
   }
 
@@ -82,11 +69,7 @@ function nullableString(value) {
 |--------------------------------------------------------------------------
 */
 
-function shapeProduct(
-  product,
-  images = [],
-  variants = []
-) {
+function shapeProduct(product, images = [], variants = []) {
   if (!product) {
     return null;
   }
@@ -100,39 +83,33 @@ function shapeProduct(
         ? Number(product.category_id)
         : null,
 
+    material_id:
+      product.material_id !== null &&
+      product.material_id !== undefined
+        ? Number(product.material_id)
+        : null,
+
     mrp: toNumber(product.mrp),
 
-    selling_price:
-      toNumber(product.selling_price),
+    selling_price: toNumber(product.selling_price),
 
-    set_quantity:
-      toNumber(
-        product.set_quantity,
-        1
-      ),
+    set_quantity: toNumber(product.set_quantity, 1),
 
-    featured:
-      toBool(product.featured),
+    featured: toBool(product.featured),
 
-    best_seller:
-      toBool(product.best_seller),
+    best_seller: toBool(product.best_seller),
 
-    new_arrival:
-      toBool(product.new_arrival),
+    new_arrival: toBool(product.new_arrival),
 
     images: Array.isArray(images)
       ? images.map((image) => ({
           ...image,
 
-          url: image.image
-            ? imageUrl(image.image)
-            : null,
+          url: image.image ? imageUrl(image.image) : null,
         }))
       : [],
 
-    variants: Array.isArray(variants)
-      ? variants
-      : [],
+    variants: Array.isArray(variants) ? variants : [],
   };
 }
 
@@ -147,10 +124,13 @@ export async function index(req, res) {
     let sql = `
       SELECT
         p.*,
-        c.name AS category_name
+        c.name AS category_name,
+        m.name AS material_name
       FROM products p
       LEFT JOIN categories c
         ON c.id = p.category_id
+      LEFT JOIN materials m
+        ON m.id = p.material_id
       WHERE 1=1
     `;
 
@@ -167,10 +147,7 @@ export async function index(req, res) {
       req.query.search !== null &&
       String(req.query.search).trim() !== ""
     ) {
-      const search =
-        `%${String(
-          req.query.search
-        ).trim()}%`;
+      const search = `%${String(req.query.search).trim()}%`;
 
       sql += `
         AND (
@@ -180,11 +157,7 @@ export async function index(req, res) {
         )
       `;
 
-      params.push(
-        search,
-        search,
-        search
-      );
+      params.push(search, search, search);
     }
 
     /*
@@ -198,8 +171,7 @@ export async function index(req, res) {
       req.query.category_id !== null &&
       req.query.category_id !== ""
     ) {
-      const categoryId =
-        Number(req.query.category_id);
+      const categoryId = Number(req.query.category_id);
 
       if (Number.isFinite(categoryId)) {
         sql += `
@@ -225,36 +197,23 @@ export async function index(req, res) {
         AND p.status = ?
       `;
 
-      params.push(
-        String(req.query.status).trim()
-      );
+      params.push(String(req.query.status).trim());
     }
 
     sql += `
       ORDER BY p.id DESC
     `;
 
-    const rows = await query(
-      sql,
-      params
-    );
+    const rows = await query(sql, params);
 
     return ok(res, {
       success: true,
       data: rows,
     });
   } catch (error) {
-    console.error(
-      "GET PRODUCTS ERROR:",
-      error
-    );
+    console.error("GET PRODUCTS ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to load products.",
-      500
-    );
+    return fail(res, error.message || "Unable to load products.", 500);
   }
 }
 
@@ -274,17 +233,10 @@ export async function store(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const name =
-      typeof x.name === "string"
-        ? x.name.trim()
-        : "";
+    const name = typeof x.name === "string" ? x.name.trim() : "";
 
     if (!name) {
-      return fail(
-        res,
-        "Product name is required.",
-        422
-      );
+      return fail(res, "Product name is required.", 422);
     }
 
     /*
@@ -293,11 +245,7 @@ export async function store(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const slug =
-      await uniqueSlug(
-        name,
-        "products"
-      );
+    const slug = await uniqueSlug(name, "products");
 
     /*
     |--------------------------------------------------------------------------
@@ -305,110 +253,95 @@ export async function store(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const values =
-      productFields.map(
-        (field) => {
-          /*
-          |--------------------------------------------------------------------------
-          | Boolean fields
-          |--------------------------------------------------------------------------
-          */
+    const values = productFields.map((field) => {
+      /*
+      |--------------------------------------------------------------------------
+      | Boolean fields
+      |--------------------------------------------------------------------------
+      */
 
-          if (
-            field === "featured" ||
-            field === "best_seller" ||
-            field === "new_arrival"
-          ) {
-            return toBool(
-              x[field]
-            )
-              ? 1
-              : 0;
-          }
+      if (
+        field === "featured" ||
+        field === "best_seller" ||
+        field === "new_arrival"
+      ) {
+        return toBool(x[field]) ? 1 : 0;
+      }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Numeric fields
-          |--------------------------------------------------------------------------
-          */
+      /*
+      |--------------------------------------------------------------------------
+      | Numeric fields
+      |--------------------------------------------------------------------------
+      */
 
-          if (
-            field === "mrp" ||
-            field === "selling_price"
-          ) {
-            return toNumber(
-              x[field],
-              0
-            );
-          }
+      if (field === "mrp" || field === "selling_price") {
+        return toNumber(x[field], 0);
+      }
 
-          if (
-            field === "set_quantity"
-          ) {
-            return toNumber(
-              x[field],
-              1
-            );
-          }
+      if (field === "set_quantity") {
+        return toNumber(x[field], 1);
+      }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Status
-          |--------------------------------------------------------------------------
-          */
+      /*
+      |--------------------------------------------------------------------------
+      | Status
+      |--------------------------------------------------------------------------
+      */
 
-          if (
-            field === "status"
-          ) {
-            const status =
-              nullableString(
-                x[field]
-              );
+      if (field === "status") {
+        const status = nullableString(x[field]);
 
-            return (
-              status || "active"
-            );
-          }
+        return status || "active";
+      }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Category
-          |--------------------------------------------------------------------------
-          */
+      /*
+      |--------------------------------------------------------------------------
+      | Category
+      |--------------------------------------------------------------------------
+      */
 
-          if (
-            field === "category_id"
-          ) {
-            if (
-              x[field] ===
-                undefined ||
-              x[field] === null ||
-              x[field] === ""
-            ) {
-              return null;
-            }
-
-            const categoryId =
-              Number(x[field]);
-
-            return Number.isFinite(
-              categoryId
-            )
-              ? categoryId
-              : null;
-          }
-
-          /*
-          |--------------------------------------------------------------------------
-          | Everything else
-          |--------------------------------------------------------------------------
-          */
-
-          return nullableString(
-            x[field]
-          );
+      if (field === "category_id") {
+        if (
+          x[field] === undefined ||
+          x[field] === null ||
+          x[field] === ""
+        ) {
+          return null;
         }
-      );
+
+        const categoryId = Number(x[field]);
+
+        return Number.isFinite(categoryId) ? categoryId : null;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Material
+      |--------------------------------------------------------------------------
+      */
+
+      if (field === "material_id") {
+        if (
+          x[field] === undefined ||
+          x[field] === null ||
+          x[field] === ""
+        ) {
+          return null;
+        }
+
+        const materialId = Number(x[field]);
+
+        return Number.isFinite(materialId) ? materialId : null;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Everything else
+      |--------------------------------------------------------------------------
+      */
+
+      return nullableString(x[field]);
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -426,23 +359,14 @@ export async function store(req, res) {
       )
       VALUES
       (
-        ${productFields
-          .map(() => "?")
-          .join(",")},
+        ${productFields.map(() => "?").join(",")},
         ?,
         NOW(),
         NOW()
       )
     `;
 
-    const result =
-      await query(
-        sql,
-        [
-          ...values,
-          slug,
-        ]
-      );
+    const result = await query(sql, [...values, slug]);
 
     /*
     |--------------------------------------------------------------------------
@@ -450,53 +374,40 @@ export async function store(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const productRows =
-      await query(
-        `
+    const productRows = await query(
+      `
         SELECT
           p.*,
-          c.name AS category_name
+          c.name AS category_name,
+          m.name AS material_name
         FROM products p
         LEFT JOIN categories c
           ON c.id = p.category_id
+        LEFT JOIN materials m
+          ON m.id = p.material_id
         WHERE p.id = ?
         LIMIT 1
-        `,
-        [
-          result.insertId,
-        ]
-      );
+      `,
+      [result.insertId],
+    );
 
-    const product =
-      productRows[0];
+    const product = productRows[0];
 
     return ok(
       res,
       {
         success: true,
 
-        message:
-          "Product created successfully.",
+        message: "Product created successfully.",
 
-        data:
-          shapeProduct(
-            product
-          ),
+        data: shapeProduct(product),
       },
-      201
+      201,
     );
   } catch (error) {
-    console.error(
-      "CREATE PRODUCT ERROR:",
-      error
-    );
+    console.error("CREATE PRODUCT ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to create product.",
-      500
-    );
+    return fail(res, error.message || "Unable to create product.", 500);
   }
 }
 
@@ -519,11 +430,9 @@ export async function store(req, res) {
 
 export async function show(req, res) {
   try {
-    const rawId =
-      req.params.id;
+    const rawId = req.params.id;
 
-    const id =
-      Number(rawId);
+    const id = Number(rawId);
 
     /*
     |--------------------------------------------------------------------------
@@ -531,15 +440,8 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      !Number.isInteger(id) ||
-      id <= 0
-    ) {
-      return fail(
-        res,
-        "Invalid product ID.",
-        422
-      );
+    if (!Number.isInteger(id) || id <= 0) {
+      return fail(res, "Invalid product ID.", 422);
     }
 
     /*
@@ -548,30 +450,27 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const productRows =
-      await query(
-        `
+    const productRows = await query(
+      `
         SELECT
           p.*,
-          c.name AS category_name
+          c.name AS category_name,
+          m.name AS material_name
         FROM products p
         LEFT JOIN categories c
           ON c.id = p.category_id
+        LEFT JOIN materials m
+          ON m.id = p.material_id
         WHERE p.id = ?
         LIMIT 1
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
-    const product =
-      productRows[0];
+    const product = productRows[0];
 
     if (!product) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+      return fail(res, "Product not found.", 404);
     }
 
     /*
@@ -580,9 +479,8 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const images =
-      await query(
-        `
+    const images = await query(
+      `
         SELECT *
         FROM product_images
         WHERE product_id = ?
@@ -590,9 +488,9 @@ export async function show(req, res) {
           is_primary DESC,
           sort_order ASC,
           id ASC
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -600,9 +498,8 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const variants =
-      await query(
-        `
+    const variants = await query(
+      `
         SELECT
           pv.*,
 
@@ -632,15 +529,14 @@ export async function show(req, res) {
           ON c.id = pv.color_id
 
         LEFT JOIN inventories i
-          ON i.product_variant_id =
-             pv.id
+          ON i.product_variant_id = pv.id
 
         WHERE pv.product_id = ?
 
         ORDER BY pv.id ASC
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -651,25 +547,12 @@ export async function show(req, res) {
     return ok(res, {
       success: true,
 
-      data:
-        shapeProduct(
-          product,
-          images,
-          variants
-        ),
+      data: shapeProduct(product, images, variants),
     });
   } catch (error) {
-    console.error(
-      "GET SINGLE PRODUCT ERROR:",
-      error
-    );
+    console.error("GET SINGLE PRODUCT ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to load product.",
-      500
-    );
+    return fail(res, error.message || "Unable to load product.", 500);
   }
 }
 
@@ -681,8 +564,7 @@ export async function show(req, res) {
 
 export async function update(req, res) {
   try {
-    const id =
-      Number(req.params.id);
+    const id = Number(req.params.id);
 
     /*
     |--------------------------------------------------------------------------
@@ -690,15 +572,8 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      !Number.isInteger(id) ||
-      id <= 0
-    ) {
-      return fail(
-        res,
-        "Invalid product ID.",
-        422
-      );
+    if (!Number.isInteger(id) || id <= 0) {
+      return fail(res, "Invalid product ID.", 422);
     }
 
     /*
@@ -707,30 +582,23 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const oldRows =
-      await query(
-        `
+    const oldRows = await query(
+      `
         SELECT *
         FROM products
         WHERE id = ?
         LIMIT 1
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
-    const old =
-      oldRows[0];
+    const old = oldRows[0];
 
     if (!old) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+      return fail(res, "Product not found.", 404);
     }
 
-    const x =
-      req.body || {};
+    const x = req.body || {};
 
     /*
     |--------------------------------------------------------------------------
@@ -738,19 +606,10 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const name =
-      x.name !== undefined
-        ? String(
-            x.name
-          ).trim()
-        : old.name;
+    const name = x.name !== undefined ? String(x.name).trim() : old.name;
 
     if (!name) {
-      return fail(
-        res,
-        "Product name is required.",
-        422
-      );
+      return fail(res, "Product name is required.", 422);
     }
 
     /*
@@ -759,18 +618,10 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    let slug =
-      old.slug;
+    let slug = old.slug;
 
-    if (
-      name !== old.name
-    ) {
-      slug =
-        await uniqueSlug(
-          name,
-          "products",
-          id
-        );
+    if (name !== old.name) {
+      slug = await uniqueSlug(name, "products", id);
     }
 
     /*
@@ -779,166 +630,115 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const values =
-      productFields.map(
-        (field) => {
-          /*
-          |--------------------------------------------------------------------------
-          | Name
-          |--------------------------------------------------------------------------
-          */
+    const values = productFields.map((field) => {
+      /*
+      |--------------------------------------------------------------------------
+      | Name
+      |--------------------------------------------------------------------------
+      */
 
-          if (
-            field === "name"
-          ) {
-            return name;
-          }
+      if (field === "name") {
+        return name;
+      }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Boolean
-          |--------------------------------------------------------------------------
-          */
+      /*
+      |--------------------------------------------------------------------------
+      | Boolean
+      |--------------------------------------------------------------------------
+      */
 
-          if (
-            field === "featured" ||
-            field === "best_seller" ||
-            field === "new_arrival"
-          ) {
-            if (
-              x[field] ===
-                undefined
-            ) {
-              return toBool(
-                old[field]
-              )
-                ? 1
-                : 0;
-            }
-
-            return toBool(
-              x[field]
-            )
-              ? 1
-              : 0;
-          }
-
-          /*
-          |--------------------------------------------------------------------------
-          | Numeric
-          |--------------------------------------------------------------------------
-          */
-
-          if (
-            field === "mrp"
-          ) {
-            return toNumber(
-              x[field],
-              toNumber(
-                old.mrp
-              )
-            );
-          }
-
-          if (
-            field ===
-            "selling_price"
-          ) {
-            return toNumber(
-              x[field],
-              toNumber(
-                old.selling_price
-              )
-            );
-          }
-
-          if (
-            field ===
-            "set_quantity"
-          ) {
-            return toNumber(
-              x[field],
-              toNumber(
-                old.set_quantity,
-                1
-              )
-            );
-          }
-
-          /*
-          |--------------------------------------------------------------------------
-          | Category
-          |--------------------------------------------------------------------------
-          */
-
-          if (
-            field ===
-            "category_id"
-          ) {
-            if (
-              x[field] ===
-                undefined
-            ) {
-              return old.category_id;
-            }
-
-            if (
-              x[field] ===
-                null ||
-              x[field] === ""
-            ) {
-              return null;
-            }
-
-            const categoryId =
-              Number(
-                x[field]
-              );
-
-            return Number.isFinite(
-              categoryId
-            )
-              ? categoryId
-              : null;
-          }
-
-          /*
-          |--------------------------------------------------------------------------
-          | Status
-          |--------------------------------------------------------------------------
-          */
-
-          if (
-            field === "status"
-          ) {
-            return (
-              nullableString(
-                x[field]
-              ) ||
-              old.status ||
-              "active"
-            );
-          }
-
-          /*
-          |--------------------------------------------------------------------------
-          | Strings
-          |--------------------------------------------------------------------------
-          */
-
-          if (
-            x[field] ===
-            undefined
-          ) {
-            return old[field] ??
-              null;
-          }
-
-          return nullableString(
-            x[field]
-          );
+      if (
+        field === "featured" ||
+        field === "best_seller" ||
+        field === "new_arrival"
+      ) {
+        if (x[field] === undefined) {
+          return toBool(old[field]) ? 1 : 0;
         }
-      );
+
+        return toBool(x[field]) ? 1 : 0;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Numeric
+      |--------------------------------------------------------------------------
+      */
+
+      if (field === "mrp") {
+        return toNumber(x[field], toNumber(old.mrp));
+      }
+
+      if (field === "selling_price") {
+        return toNumber(x[field], toNumber(old.selling_price));
+      }
+
+      if (field === "set_quantity") {
+        return toNumber(x[field], toNumber(old.set_quantity, 1));
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Category
+      |--------------------------------------------------------------------------
+      */
+
+      if (field === "category_id") {
+        if (x[field] === undefined) {
+          return old.category_id;
+        }
+
+        if (x[field] === null || x[field] === "") {
+          return null;
+        }
+
+        const categoryId = Number(x[field]);
+
+        return Number.isFinite(categoryId) ? categoryId : null;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Material
+      |--------------------------------------------------------------------------
+      */
+
+      if (field === "material_id") {
+        if (x[field] === undefined) {
+          return old.material_id ?? null;
+        }
+
+        if (x[field] === null || x[field] === "") {
+          return null;
+        }
+
+        const materialId = Number(x[field]);
+
+        return Number.isFinite(materialId) ? materialId : null;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Status
+      |--------------------------------------------------------------------------
+      */
+
+      if (field === "status") {
+        return nullableString(x[field]) || old.status || "active";
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Strings
+      |--------------------------------------------------------------------------
+      */
+
+      if (x[field] === undefined) {
+        return old[field] ?? null;
+      }
+
+      return nullableString(x[field]);
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -950,21 +750,12 @@ export async function update(req, res) {
       `
       UPDATE products
       SET
-        ${productFields
-          .map(
-            (field) =>
-              `${field} = ?`
-          )
-          .join(",")},
+        ${productFields.map((field) => `${field} = ?`).join(",")},
         slug = ?,
         updated_at = NOW()
       WHERE id = ?
       `,
-      [
-        ...values,
-        slug,
-        id,
-      ]
+      [...values, slug, id],
     );
 
     /*
@@ -973,47 +764,36 @@ export async function update(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const productRows =
-      await query(
-        `
+    const productRows = await query(
+      `
         SELECT
           p.*,
-          c.name AS category_name
+          c.name AS category_name,
+          m.name AS material_name
         FROM products p
         LEFT JOIN categories c
           ON c.id = p.category_id
+        LEFT JOIN materials m
+          ON m.id = p.material_id
         WHERE p.id = ?
         LIMIT 1
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
-    const product =
-      productRows[0];
+    const product = productRows[0];
 
     return ok(res, {
       success: true,
 
-      message:
-        "Product updated successfully.",
+      message: "Product updated successfully.",
 
-      data:
-        shapeProduct(
-          product
-        ),
+      data: shapeProduct(product),
     });
   } catch (error) {
-    console.error(
-      "UPDATE PRODUCT ERROR:",
-      error
-    );
+    console.error("UPDATE PRODUCT ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to update product.",
-      500
-    );
+    return fail(res, error.message || "Unable to update product.", 500);
   }
 }
 
@@ -1025,37 +805,24 @@ export async function update(req, res) {
 
 export async function destroy(req, res) {
   try {
-    const id =
-      Number(req.params.id);
+    const id = Number(req.params.id);
 
-    if (
-      !Number.isInteger(id) ||
-      id <= 0
-    ) {
-      return fail(
-        res,
-        "Invalid product ID.",
-        422
-      );
+    if (!Number.isInteger(id) || id <= 0) {
+      return fail(res, "Invalid product ID.", 422);
     }
 
-    const productRows =
-      await query(
-        `
+    const productRows = await query(
+      `
         SELECT id
         FROM products
         WHERE id = ?
         LIMIT 1
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
     if (!productRows[0]) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+      return fail(res, "Product not found.", 404);
     }
 
     await query(
@@ -1063,27 +830,18 @@ export async function destroy(req, res) {
       DELETE FROM products
       WHERE id = ?
       `,
-      [id]
+      [id],
     );
 
     return ok(res, {
       success: true,
 
-      message:
-        "Product deleted successfully.",
+      message: "Product deleted successfully.",
     });
   } catch (error) {
-    console.error(
-      "DELETE PRODUCT ERROR:",
-      error
-    );
+    console.error("DELETE PRODUCT ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to delete product.",
-      500
-    );
+    return fail(res, error.message || "Unable to delete product.", 500);
   }
 }
 
@@ -1107,22 +865,10 @@ export async function destroy(req, res) {
 
 export async function images(req, res) {
   try {
-    const productId =
-      Number(
-        req.params.id
-      );
+    const productId = Number(req.params.id);
 
-    if (
-      !Number.isInteger(
-        productId
-      ) ||
-      productId <= 0
-    ) {
-      return fail(
-        res,
-        "Invalid product ID.",
-        422
-      );
+    if (!Number.isInteger(productId) || productId <= 0) {
+      return fail(res, "Invalid product ID.", 422);
     }
 
     /*
@@ -1132,11 +878,7 @@ export async function images(req, res) {
     */
 
     if (!req.file) {
-      return fail(
-        res,
-        "Image file is required.",
-        422
-      );
+      return fail(res, "Image file is required.", 422);
     }
 
     /*
@@ -1145,23 +887,18 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const productRows =
-      await query(
-        `
+    const productRows = await query(
+      `
         SELECT id
         FROM products
         WHERE id = ?
         LIMIT 1
-        `,
-        [productId]
-      );
+      `,
+      [productId],
+    );
 
     if (!productRows[0]) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+      return fail(res, "Product not found.", 404);
     }
 
     /*
@@ -1170,21 +907,17 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const countRows =
-      await query(
-        `
+    const countRows = await query(
+      `
         SELECT
           COUNT(*) AS count
         FROM product_images
         WHERE product_id = ?
-        `,
-        [productId]
-      );
+      `,
+      [productId],
+    );
 
-    const count =
-      Number(
-        countRows[0]?.count || 0
-      );
+    const count = Number(countRows[0]?.count || 0);
 
     /*
     |--------------------------------------------------------------------------
@@ -1192,16 +925,9 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const requestedPrimary =
-      toBool(
-        req.body?.is_primary
-      );
+    const requestedPrimary = toBool(req.body?.is_primary);
 
-    const isPrimary =
-      count === 0 ||
-      requestedPrimary
-        ? 1
-        : 0;
+    const isPrimary = count === 0 || requestedPrimary ? 1 : 0;
 
     /*
     |--------------------------------------------------------------------------
@@ -1216,7 +942,7 @@ export async function images(req, res) {
         SET is_primary = 0
         WHERE product_id = ?
         `,
-        [productId]
+        [productId],
       );
     }
 
@@ -1226,16 +952,9 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    let sortOrder =
-      Number(
-        req.body?.sort_order
-      );
+    let sortOrder = Number(req.body?.sort_order);
 
-    if (
-      !Number.isFinite(
-        sortOrder
-      )
-    ) {
+    if (!Number.isFinite(sortOrder)) {
       sortOrder = count;
     }
 
@@ -1245,8 +964,7 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const imagePath =
-      `products/${req.file.filename}`;
+    const imagePath = `products/${req.file.filename}`;
 
     /*
     |--------------------------------------------------------------------------
@@ -1254,10 +972,7 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const altText =
-      nullableString(
-        req.body?.alt_text
-      );
+    const altText = nullableString(req.body?.alt_text);
 
     /*
     |--------------------------------------------------------------------------
@@ -1265,9 +980,8 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const result =
-      await query(
-        `
+    const result = await query(
+      `
         INSERT INTO product_images
         (
           product_id,
@@ -1289,14 +1003,8 @@ export async function images(req, res) {
           NOW()
         )
         `,
-        [
-          productId,
-          imagePath,
-          altText,
-          sortOrder,
-          isPrimary,
-        ]
-      );
+      [productId, imagePath, altText, sortOrder, isPrimary],
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -1304,51 +1012,37 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const imageRows =
-      await query(
-        `
+    const imageRows = await query(
+      `
         SELECT *
         FROM product_images
         WHERE id = ?
         LIMIT 1
-        `,
-        [result.insertId]
-      );
+      `,
+      [result.insertId],
+    );
 
-    const image =
-      imageRows[0];
+    const image = imageRows[0];
 
     return ok(
       res,
       {
         success: true,
 
-        message:
-          "Image uploaded successfully.",
+        message: "Image uploaded successfully.",
 
         data: {
           ...image,
 
-          url:
-            imageUrl(
-              image.image
-            ),
+          url: imageUrl(image.image),
         },
       },
-      201
+      201,
     );
   } catch (error) {
-    console.error(
-      "IMAGE UPLOAD ERROR:",
-      error
-    );
+    console.error("IMAGE UPLOAD ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to upload image.",
-      500
-    );
+    return fail(res, error.message || "Unable to upload image.", 500);
   }
 }
 
@@ -1358,47 +1052,28 @@ export async function images(req, res) {
 |--------------------------------------------------------------------------
 */
 
-export async function deleteImage(
-  req,
-  res
-) {
+export async function deleteImage(req, res) {
   try {
-    const id =
-      Number(
-        req.params.id
-      );
+    const id = Number(req.params.id);
 
-    if (
-      !Number.isInteger(id) ||
-      id <= 0
-    ) {
-      return fail(
-        res,
-        "Invalid image ID.",
-        422
-      );
+    if (!Number.isInteger(id) || id <= 0) {
+      return fail(res, "Invalid image ID.", 422);
     }
 
-    const imageRows =
-      await query(
-        `
+    const imageRows = await query(
+      `
         SELECT *
         FROM product_images
         WHERE id = ?
         LIMIT 1
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
-    const image =
-      imageRows[0];
+    const image = imageRows[0];
 
     if (!image) {
-      return fail(
-        res,
-        "Image not found.",
-        404
-      );
+      return fail(res, "Image not found.", 404);
     }
 
     await query(
@@ -1406,27 +1081,18 @@ export async function deleteImage(
       DELETE FROM product_images
       WHERE id = ?
       `,
-      [id]
+      [id],
     );
 
     return ok(res, {
       success: true,
 
-      message:
-        "Image deleted successfully.",
+      message: "Image deleted successfully.",
     });
   } catch (error) {
-    console.error(
-      "DELETE IMAGE ERROR:",
-      error
-    );
+    console.error("DELETE IMAGE ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to delete image.",
-      500
-    );
+    return fail(res, error.message || "Unable to delete image.", 500);
   }
 }
 
@@ -1436,47 +1102,28 @@ export async function deleteImage(
 |--------------------------------------------------------------------------
 */
 
-export async function primaryImage(
-  req,
-  res
-) {
+export async function primaryImage(req, res) {
   try {
-    const id =
-      Number(
-        req.params.id
-      );
+    const id = Number(req.params.id);
 
-    if (
-      !Number.isInteger(id) ||
-      id <= 0
-    ) {
-      return fail(
-        res,
-        "Invalid image ID.",
-        422
-      );
+    if (!Number.isInteger(id) || id <= 0) {
+      return fail(res, "Invalid image ID.", 422);
     }
 
-    const imageRows =
-      await query(
-        `
+    const imageRows = await query(
+      `
         SELECT *
         FROM product_images
         WHERE id = ?
         LIMIT 1
-        `,
-        [id]
-      );
+      `,
+      [id],
+    );
 
-    const image =
-      imageRows[0];
+    const image = imageRows[0];
 
     if (!image) {
-      return fail(
-        res,
-        "Image not found.",
-        404
-      );
+      return fail(res, "Image not found.", 404);
     }
 
     await query(
@@ -1485,9 +1132,7 @@ export async function primaryImage(
       SET is_primary = 0
       WHERE product_id = ?
       `,
-      [
-        image.product_id,
-      ]
+      [image.product_id],
     );
 
     await query(
@@ -1496,26 +1141,17 @@ export async function primaryImage(
       SET is_primary = 1
       WHERE id = ?
       `,
-      [id]
+      [id],
     );
 
     return ok(res, {
       success: true,
 
-      message:
-        "Primary image updated.",
+      message: "Primary image updated.",
     });
   } catch (error) {
-    console.error(
-      "PRIMARY IMAGE ERROR:",
-      error
-    );
+    console.error("PRIMARY IMAGE ERROR:", error);
 
-    return fail(
-      res,
-      error.message ||
-        "Unable to set primary image.",
-      500
-    );
+    return fail(res, error.message || "Unable to set primary image.", 500);
   }
 }

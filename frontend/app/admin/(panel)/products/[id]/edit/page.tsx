@@ -39,6 +39,12 @@ type Category = {
   status: string;
 };
 
+type Material = {
+  id: number;
+  name: string;
+  status: string;
+};
+
 type ProductImage = {
   id: number;
   product_id: number;
@@ -52,19 +58,27 @@ type ProductImage = {
 type Product = {
   id: number;
   name: string;
+
   category_id: number | null;
+  material_id: number | null;
+
   sku: string | null;
   short_description: string | null;
   description: string | null;
+
   mrp: number | string | null;
   selling_price: number | string | null;
   set_quantity: number | string | null;
+
   status: string;
+
   featured: boolean | number | string;
   best_seller: boolean | number | string;
   new_arrival: boolean | number | string;
+
   seo_title: string | null;
   seo_description: string | null;
+
   images?: ProductImage[];
 };
 
@@ -106,6 +120,7 @@ function getImageUrl(image: ProductImage) {
 
 export default function EditProductPage() {
   const router = useRouter();
+
   const params = useParams();
 
   const productId = String(params.id);
@@ -117,6 +132,9 @@ export default function EditProductPage() {
   const [categories, setCategories] =
     useState<Category[]>([]);
 
+  const [materials, setMaterials] =
+    useState<Material[]>([]);
+
   const [loading, setLoading] =
     useState(true);
 
@@ -124,6 +142,9 @@ export default function EditProductPage() {
     useState("");
 
   const [categoryId, setCategoryId] =
+    useState("");
+
+  const [materialId, setMaterialId] =
     useState("");
 
   const [sku, setSku] =
@@ -182,7 +203,7 @@ export default function EditProductPage() {
     useState("");
 
   /* ------------------------------------------------------------------------ */
-  /* Load Product + Categories                                                 */
+  /* Load Product + Categories + Materials                                    */
   /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
@@ -196,13 +217,18 @@ export default function EditProductPage() {
         const [
           productResponse,
           categoryResponse,
+          materialResponse,
         ] = await Promise.all([
           apiFetch(
-            `/admin/products/${productId}`
+            `/admin/products/${productId}`,
           ),
 
           apiFetch(
-            "/admin/categories"
+            "/admin/categories",
+          ),
+
+          apiFetch(
+            "/admin/materials",
           ),
         ]);
 
@@ -212,14 +238,21 @@ export default function EditProductPage() {
         const categoryData =
           await categoryResponse.json();
 
+        const materialData =
+          await materialResponse.json();
+
         if (cancelled) {
           return;
         }
 
+        /* ------------------------------------------------------------------ */
+        /* Product                                                             */
+        /* ------------------------------------------------------------------ */
+
         if (!productResponse.ok) {
           setError(
             productData?.message ||
-              "Unable to load product."
+              "Unable to load product.",
           );
 
           return;
@@ -230,61 +263,56 @@ export default function EditProductPage() {
 
         if (!product) {
           setError(
-            "Product data not found."
+            "Product data not found.",
           );
 
           return;
         }
 
-        /* ------------------------------------------------------------------ */
-        /* Product                                                             */
-        /* ------------------------------------------------------------------ */
-
         setName(
-          product.name || ""
+          product.name || "",
         );
 
         setCategoryId(
           product.category_id !== null &&
-          product.category_id !== undefined
-            ? String(
-                product.category_id
-              )
-            : ""
+            product.category_id !== undefined
+            ? String(product.category_id)
+            : "",
+        );
+
+        setMaterialId(
+          product.material_id !== null &&
+            product.material_id !== undefined
+            ? String(product.material_id)
+            : "",
         );
 
         setSku(
-          product.sku || ""
+          product.sku || "",
         );
 
         setShortDescription(
-          product.short_description || ""
+          product.short_description || "",
         );
 
         setDescription(
-          product.description || ""
+          product.description || "",
         );
 
         setMrp(
-          String(
-            product.mrp ?? ""
-          )
+          String(product.mrp ?? ""),
         );
 
         setSellingPrice(
-          String(
-            product.selling_price ?? ""
-          )
+          String(product.selling_price ?? ""),
         );
 
         setSetQuantity(
-          String(
-            product.set_quantity ?? 1
-          )
+          String(product.set_quantity ?? 1),
         );
 
         setStatus(
-          product.status || "active"
+          product.status || "active",
         );
 
         /*
@@ -292,73 +320,82 @@ export default function EditProductPage() {
          * Do not use Boolean("0").
          * Boolean("0") === true.
          */
+
         setFeatured(
-          toBoolean(
-            product.featured
-          )
+          toBoolean(product.featured),
         );
 
         setBestSeller(
-          toBoolean(
-            product.best_seller
-          )
+          toBoolean(product.best_seller),
         );
 
         setNewArrival(
-          toBoolean(
-            product.new_arrival
-          )
+          toBoolean(product.new_arrival),
         );
 
         setSeoTitle(
-          product.seo_title || ""
+          product.seo_title || "",
         );
 
         setSeoDescription(
-          product.seo_description || ""
+          product.seo_description || "",
         );
 
         setImages(
-          Array.isArray(
-            product.images
-          )
+          Array.isArray(product.images)
             ? product.images
-            : []
+            : [],
         );
 
         /* ------------------------------------------------------------------ */
         /* Categories                                                          */
         /* ------------------------------------------------------------------ */
 
-        if (
-          categoryResponse.ok
-        ) {
+        if (categoryResponse.ok) {
           const categoryRows =
-            Array.isArray(
-              categoryData?.data
-            )
+            Array.isArray(categoryData?.data)
               ? categoryData.data
               : [];
 
           setCategories(
             categoryRows.filter(
-              (
-                category: Category
-              ) =>
-                category.status ===
-                "active"
-            )
+              (category: Category) =>
+                category.status === "active",
+            ),
+          );
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* Materials                                                           */
+        /* ------------------------------------------------------------------ */
+
+        if (materialResponse.ok) {
+          const materialRows =
+            Array.isArray(materialData?.data)
+              ? materialData.data
+              : [];
+
+          setMaterials(
+            materialRows.filter(
+              (material: Material) =>
+                material.status === "active",
+            ),
+          );
+        } else {
+          console.error(
+            "Unable to load materials:",
+            materialData,
           );
         }
       } catch (err) {
         console.error(
           "Load product error:",
-          err
+          err,
         );
 
         if (!cancelled) {
           setError(
-            "Unable to connect to server."
+            "Unable to connect to server.",
           );
         }
       } finally {
@@ -382,248 +419,399 @@ export default function EditProductPage() {
   /* ------------------------------------------------------------------------ */
 
   async function reloadProduct() {
-  try {
-    const response =
-      await apiFetch(
-        `/admin/products/${productId}`
+    try {
+      const response =
+        await apiFetch(
+          `/admin/products/${productId}`,
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        console.error(
+          data?.message ||
+            "Unable to reload product.",
+        );
+
+        return;
+      }
+
+      const product =
+        data?.data;
+
+      if (!product) {
+        return;
+      }
+
+      setName(
+        product.name || "",
       );
 
-    const data =
-      await response.json();
+      setCategoryId(
+        product.category_id !== null &&
+          product.category_id !== undefined
+          ? String(product.category_id)
+          : "",
+      );
 
-    if (!response.ok) {
+      setMaterialId(
+        product.material_id !== null &&
+          product.material_id !== undefined
+          ? String(product.material_id)
+          : "",
+      );
+
+      setSku(
+        product.sku || "",
+      );
+
+      setShortDescription(
+        product.short_description || "",
+      );
+
+      setDescription(
+        product.description || "",
+      );
+
+      setMrp(
+        String(product.mrp ?? ""),
+      );
+
+      setSellingPrice(
+        String(product.selling_price ?? ""),
+      );
+
+      setSetQuantity(
+        String(product.set_quantity ?? 1),
+      );
+
+      setStatus(
+        product.status || "active",
+      );
+
+      setFeatured(
+        toBoolean(product.featured),
+      );
+
+      setBestSeller(
+        toBoolean(product.best_seller),
+      );
+
+      setNewArrival(
+        toBoolean(product.new_arrival),
+      );
+
+      setSeoTitle(
+        product.seo_title || "",
+      );
+
+      setSeoDescription(
+        product.seo_description || "",
+      );
+
+      setImages(
+        Array.isArray(product.images)
+          ? product.images
+          : [],
+      );
+    } catch (error) {
       console.error(
-        data?.message ||
-          "Unable to reload product."
+        "Unable to reload product:",
+        error,
       );
-
-      return;
     }
-
-    const product =
-      data?.data;
-
-    if (!product) {
-      return;
-    }
-
-    setName(
-      product.name || ""
-    );
-
-    setCategoryId(
-      product.category_id !== null &&
-      product.category_id !== undefined
-        ? String(
-            product.category_id
-          )
-        : ""
-    );
-
-    setSku(
-      product.sku || ""
-    );
-
-    setShortDescription(
-      product.short_description ||
-        ""
-    );
-
-    setDescription(
-      product.description ||
-        ""
-    );
-
-    setMrp(
-      String(
-        product.mrp ?? ""
-      )
-    );
-
-    setSellingPrice(
-      String(
-        product.selling_price ??
-          ""
-      )
-    );
-
-    setSetQuantity(
-      String(
-        product.set_quantity ??
-          1
-      )
-    );
-
-    setStatus(
-      product.status ||
-        "active"
-    );
-
-    setFeatured(
-      toBoolean(
-        product.featured
-      )
-    );
-
-    setBestSeller(
-      toBoolean(
-        product.best_seller
-      )
-    );
-
-    setNewArrival(
-      toBoolean(
-        product.new_arrival
-      )
-    );
-
-    setSeoTitle(
-      product.seo_title ||
-        ""
-    );
-
-    setSeoDescription(
-      product.seo_description ||
-        ""
-    );
-
-    setImages(
-      Array.isArray(
-        product.images
-      )
-        ? product.images
-        : []
-    );
-  } catch (error) {
-    console.error(
-      "Unable to reload product:",
-      error
-    );
   }
-}
 
   /* ------------------------------------------------------------------------ */
   /* Upload Images                                                             */
   /* ------------------------------------------------------------------------ */
 
   async function handleImageUpload(
-  event: ChangeEvent<HTMLInputElement>
-) {
-  const selectedFiles =
-    event.target.files;
-
-  if (
-    !selectedFiles ||
-    selectedFiles.length === 0
+    event: ChangeEvent<HTMLInputElement>,
   ) {
-    return;
+    const selectedFiles =
+      event.target.files;
+
+    if (
+      !selectedFiles ||
+      selectedFiles.length === 0
+    ) {
+      return;
+    }
+
+    setUploadingImages(true);
+    setImageError("");
+
+    try {
+      const files =
+        Array.from(selectedFiles);
+
+      /*
+      |--------------------------------------------------------------------------
+      | Upload files individually
+      |--------------------------------------------------------------------------
+      |
+      | Backend expects:
+      |
+      | req.file
+      |
+      | Therefore:
+      |
+      | image
+      |
+      | NOT:
+      |
+      | images[]
+      |
+      |--------------------------------------------------------------------------
+      */
+
+      for (
+        let index = 0;
+        index < files.length;
+        index++
+      ) {
+        const file =
+          files[index];
+
+        const formData =
+          new FormData();
+
+        formData.append(
+          "image",
+          file,
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | First uploaded image becomes primary
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+          images.length === 0 &&
+          index === 0
+        ) {
+          formData.append(
+            "is_primary",
+            "1",
+          );
+        }
+
+        const response =
+          await apiFetch(
+            `/admin/products/${productId}/images`,
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          setImageError(
+            data?.message ||
+              `Unable to upload image: ${file.name}`,
+          );
+
+          break;
+        }
+      }
+
+      await reloadProduct();
+    } catch (error) {
+      console.error(
+        "Image upload error:",
+        error,
+      );
+
+      setImageError(
+        "Unable to upload images.",
+      );
+    } finally {
+      setUploadingImages(false);
+
+      event.target.value = "";
+    }
   }
 
-  setUploadingImages(true);
-  setImageError("");
+  /* ------------------------------------------------------------------------ */
+  /* Delete Image                                                              */
+  /* ------------------------------------------------------------------------ */
 
-  try {
-    const files =
-      Array.from(
-        selectedFiles
+  async function deleteImage(
+    imageId: number,
+  ) {
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this image?",
       );
 
-    /*
-    |--------------------------------------------------------------------------
-    | Upload files individually
-    |--------------------------------------------------------------------------
-    |
-    | Backend expects:
-    |
-    | req.file
-    |
-    | Therefore:
-    |
-    | image
-    |
-    | NOT:
-    |
-    | images[]
-    |
-    |--------------------------------------------------------------------------
-    */
+    if (!confirmed) {
+      return;
+    }
 
-    for (
-      let index = 0;
-      index < files.length;
-      index++
-    ) {
-      const file =
-        files[index];
-
-      const formData =
-        new FormData();
-
-      /*
-      |--------------------------------------------------------------------------
-      | THIS IS THE IMPORTANT FIX
-      |--------------------------------------------------------------------------
-      */
-
-      formData.append(
-        "image",
-        file
-      );
-
-      /*
-      |--------------------------------------------------------------------------
-      | Alt text
-      |--------------------------------------------------------------------------
-      */
-
-      formData.append(
-        "alt_text",
-        name.trim() ||
-          "Product image"
-      );
-
-      /*
-      |--------------------------------------------------------------------------
-      | Sort order
-      |--------------------------------------------------------------------------
-      */
-
-      formData.append(
-        "sort_order",
-        String(
-          images.length +
-            index
-        )
-      );
-
-      /*
-      |--------------------------------------------------------------------------
-      | Primary image
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        images.length === 0 &&
-        index === 0
-      ) {
-        formData.append(
-          "is_primary",
-          "1"
+    try {
+      const response =
+        await apiFetch(
+          `/admin/product-images/${imageId}`,
+          {
+            method: "DELETE",
+          },
         );
-      } else {
-        formData.append(
-          "is_primary",
-          "0"
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        window.alert(
+          data?.message ||
+            "Unable to delete image.",
         );
+
+        return;
       }
+
+      await reloadProduct();
+    } catch (error) {
+      console.error(
+        "Delete image error:",
+        error,
+      );
+
+      window.alert(
+        "Unable to connect to server.",
+      );
+    }
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Set Primary Image                                                        */
+  /* ------------------------------------------------------------------------ */
+
+  async function setPrimaryImage(
+    imageId: number,
+  ) {
+    try {
+      const response =
+        await apiFetch(
+          `/admin/product-images/${imageId}/primary`,
+          {
+            method: "PUT",
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        window.alert(
+          data?.message ||
+            "Unable to set primary image.",
+        );
+
+        return;
+      }
+
+      await reloadProduct();
+    } catch (err) {
+      console.error(
+        "Primary image error:",
+        err,
+      );
+
+      window.alert(
+        "Unable to connect to server.",
+      );
+    }
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Update Product                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    setSaving(true);
+    setError("");
+
+    try {
+      const payload = {
+        name: name.trim(),
+
+        category_id: categoryId
+          ? Number(categoryId)
+          : null,
+
+        material_id: materialId
+          ? Number(materialId)
+          : null,
+
+        sku: sku.trim()
+          ? sku.trim()
+          : null,
+
+        short_description:
+          shortDescription.trim()
+            ? shortDescription.trim()
+            : null,
+
+        description:
+          description.trim()
+            ? description.trim()
+            : null,
+
+        mrp:
+          mrp !== ""
+            ? Number(mrp)
+            : 0,
+
+        selling_price:
+          sellingPrice !== ""
+            ? Number(sellingPrice)
+            : 0,
+
+        set_quantity:
+          setQuantity !== ""
+            ? Number(setQuantity)
+            : 1,
+
+        status:
+          status || "active",
+
+        featured:
+          Boolean(featured),
+
+        best_seller:
+          Boolean(bestSeller),
+
+        new_arrival:
+          Boolean(newArrival),
+
+        seo_title:
+          seoTitle.trim()
+            ? seoTitle.trim()
+            : null,
+
+        seo_description:
+          seoDescription.trim()
+            ? seoDescription.trim()
+            : null,
+      };
 
       const response =
         await apiFetch(
-          `/admin/products/${productId}/images`,
+          `/admin/products/${productId}`,
           {
-            method: "POST",
-            body: formData,
-          }
+            method: "PUT",
+            body: JSON.stringify(payload),
+          },
         );
 
       const data =
@@ -641,276 +829,37 @@ export default function EditProductPage() {
         const firstError =
           validationErrors
             ? Object.values(
-                validationErrors
+                validationErrors,
               )[0]?.[0]
             : undefined;
 
-        throw new Error(
+        setError(
           firstError ||
             data?.message ||
-            `Unable to upload ${file.name}.`
-        );
-      }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Refresh images
-    |--------------------------------------------------------------------------
-    */
-
-    await reloadProduct();
-  } catch (error) {
-    console.error(
-      "Image upload error:",
-      error
-    );
-
-    setImageError(
-      error instanceof Error
-        ? error.message
-        : "Unable to upload image."
-    );
-  } finally {
-    setUploadingImages(false);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Allows selecting same file again
-    |--------------------------------------------------------------------------
-    */
-
-    event.target.value = "";
-  }
-}
-
-  /* ------------------------------------------------------------------------ */
-  /* Delete Image                                                              */
-  /* ------------------------------------------------------------------------ */
-
-  async function deleteImage(
-    imageId: number
-  ) {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this image?"
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      const response =
-        await apiFetch(
-          `/admin/product-images/${imageId}`,
-          {
-            method: "DELETE",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data?.message ||
-            "Unable to delete image."
+            "Unable to update product.",
         );
 
         return;
       }
 
       await reloadProduct();
-    } catch (err) {
-      console.error(
-        "Delete image error:",
-        err
-      );
 
       window.alert(
-        "Unable to connect to server."
+        "Product updated successfully.",
       );
-    }
-  }
-
-  /* ------------------------------------------------------------------------ */
-  /* Set Primary Image                                                        */
-  /* ------------------------------------------------------------------------ */
-
-  async function setPrimaryImage(
-    imageId: number
-  ) {
-    try {
-      const response =
-        await apiFetch(
-          `/admin/product-images/${imageId}/primary`,
-          {
-            method: "PUT",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data?.message ||
-            "Unable to set primary image."
-        );
-
-        return;
-      }
-
-      await reloadProduct();
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "Primary image error:",
-        err
+        "Update product error:",
+        error,
       );
-
-      window.alert(
-        "Unable to connect to server."
-      );
-    }
-  }
-
-  /* ------------------------------------------------------------------------ */
-  /* Update Product                                                            */
-  /* ------------------------------------------------------------------------ */
-
-  async function handleSubmit(
-  event: FormEvent<HTMLFormElement>
-) {
-  event.preventDefault();
-
-  setSaving(true);
-  setError("");
-
-  try {
-    const payload = {
-      name:
-        name.trim(),
-
-      category_id:
-        categoryId
-          ? Number(categoryId)
-          : null,
-
-      sku:
-        sku.trim()
-          ? sku.trim()
-          : null,
-
-      short_description:
-        shortDescription.trim()
-          ? shortDescription.trim()
-          : null,
-
-      description:
-        description.trim()
-          ? description.trim()
-          : null,
-
-      mrp:
-        mrp !== ""
-          ? Number(mrp)
-          : 0,
-
-      selling_price:
-        sellingPrice !== ""
-          ? Number(sellingPrice)
-          : 0,
-
-      set_quantity:
-        setQuantity !== ""
-          ? Number(
-              setQuantity
-            )
-          : 1,
-
-      status:
-        status || "active",
-
-      featured:
-        Boolean(featured),
-
-      best_seller:
-        Boolean(bestSeller),
-
-      new_arrival:
-        Boolean(newArrival),
-
-      seo_title:
-        seoTitle.trim()
-          ? seoTitle.trim()
-          : null,
-
-      seo_description:
-        seoDescription.trim()
-          ? seoDescription.trim()
-          : null,
-    };
-
-    const response =
-      await apiFetch(
-        `/admin/products/${productId}`,
-        {
-          method: "PUT",
-
-          body:
-            JSON.stringify(
-              payload
-            ),
-        }
-      );
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-      const validationErrors =
-        data?.errors as
-          | Record<
-              string,
-              string[]
-            >
-          | undefined;
-
-      const firstError =
-        validationErrors
-          ? Object.values(
-              validationErrors
-            )[0]?.[0]
-          : undefined;
 
       setError(
-        firstError ||
-          data?.message ||
-          "Unable to update product."
+        "Unable to connect to server.",
       );
-
-      return;
+    } finally {
+      setSaving(false);
     }
-
-    await reloadProduct();
-
-    window.alert(
-      "Product updated successfully."
-    );
-  } catch (error) {
-    console.error(
-      "Update product error:",
-      error
-    );
-
-    setError(
-      "Unable to connect to server."
-    );
-  } finally {
-    setSaving(false);
   }
-}
 
   /* ------------------------------------------------------------------------ */
   /* Loading                                                                   */
@@ -932,22 +881,17 @@ export default function EditProductPage() {
 
   return (
     <div className="pb-10">
-
       {/* ==================================================================== */}
       {/* HEADER                                                               */}
       {/* ==================================================================== */}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-
         <div className="flex items-center gap-4">
-
           <Link
             href="/admin/products"
             className="rounded-lg border border-gray-200 bg-white p-2 text-gray-700 transition hover:bg-gray-100"
           >
-            <ArrowLeft
-              size={19}
-            />
+            <ArrowLeft size={19} />
           </Link>
 
           <div>
@@ -956,11 +900,10 @@ export default function EditProductPage() {
             </h1>
 
             <p className="mt-1 text-sm text-gray-500">
-              Update product information,
-              images, variants and inventory.
+              Update product information, images,
+              variants and inventory.
             </p>
           </div>
-
         </div>
 
         <button
@@ -969,15 +912,12 @@ export default function EditProductPage() {
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Save
-            size={18}
-          />
+          <Save size={18} />
 
           {saving
             ? "Updating..."
             : "Update product"}
         </button>
-
       </div>
 
       {/* ==================================================================== */}
@@ -998,31 +938,25 @@ export default function EditProductPage() {
         id="edit-product-form"
         onSubmit={handleSubmit}
       >
-
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-
           {/* ================================================================= */}
           {/* LEFT COLUMN                                                       */}
           {/* ================================================================= */}
 
           <div className="space-y-6">
-
             {/* ---------------------------------------------------------------- */}
             {/* PRODUCT INFORMATION                                              */}
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
-
               <h2 className="font-semibold text-gray-900">
                 Product Information
               </h2>
 
               <div className="mt-5 space-y-5">
-
                 {/* Product Name */}
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Product Name *
                   </label>
@@ -1033,62 +967,51 @@ export default function EditProductPage() {
                     value={name}
                     onChange={(event) =>
                       setName(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-600"
                   />
-
                 </div>
 
                 {/* Short Description */}
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Short Description
                   </label>
 
                   <textarea
                     rows={3}
-                    value={
-                      shortDescription
-                    }
+                    value={shortDescription}
                     onChange={(event) =>
                       setShortDescription(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-600"
                   />
-
                 </div>
 
                 {/* Description */}
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Description
                   </label>
 
                   <textarea
                     rows={7}
-                    value={
-                      description
-                    }
+                    value={description}
                     onChange={(event) =>
                       setDescription(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-600"
                   />
-
                 </div>
-
               </div>
-
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1096,20 +1019,16 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
-
               <div className="flex flex-wrap items-center justify-between gap-4">
-
                 <div>
-
                   <h2 className="font-semibold text-gray-900">
                     Product Images
                   </h2>
 
                   <p className="mt-1 text-sm text-gray-500">
-                    Upload JPG, PNG or WebP
-                    product images.
+                    Upload JPG, PNG or WebP product
+                    images.
                   </p>
-
                 </div>
 
                 <label
@@ -1119,10 +1038,7 @@ export default function EditProductPage() {
                       : ""
                   }`}
                 >
-
-                  <ImagePlus
-                    size={18}
-                  />
+                  <ImagePlus size={18} />
 
                   {uploadingImages
                     ? "Uploading..."
@@ -1140,9 +1056,7 @@ export default function EditProductPage() {
                     }
                     className="hidden"
                   />
-
                 </label>
-
               </div>
 
               {imageError && (
@@ -1154,11 +1068,8 @@ export default function EditProductPage() {
               {/* No Images */}
 
               {images.length === 0 ? (
-
                 <div className="mt-6 flex min-h-52 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-
                   <div className="text-center">
-
                     <ImagePlus
                       size={35}
                       className="mx-auto text-gray-300"
@@ -1169,117 +1080,99 @@ export default function EditProductPage() {
                     </p>
 
                     <p className="mt-1 text-xs text-gray-500">
-                      Upload one or more
-                      product images.
+                      Upload one or more product
+                      images.
                     </p>
-
                   </div>
-
                 </div>
-
               ) : (
-
                 <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {images.map((image) => {
+                    const imageSrc =
+                      getImageUrl(
+                        image,
+                      );
 
-                  {images.map(
-                    (image) => {
+                    const primary =
+                      image.is_primary ===
+                        true ||
+                      Number(
+                        image.is_primary,
+                      ) === 1;
 
-                      const imageSrc =
-                        getImageUrl(
-                          image
-                        );
+                    return (
+                      <div
+                        key={image.id}
+                        className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+                      >
+                        {/* Image */}
 
-                      const primary =
-                        image.is_primary === true ||
-                        Number(image.is_primary) === 1;
+                        <div className="relative aspect-square overflow-hidden bg-gray-100">
+                          {imageSrc ? (
+                            <img
+                              src={imageSrc}
+                              alt={
+                                image.alt_text ||
+                                name ||
+                                "Product image"
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-xs text-gray-400">
+                              Image unavailable
+                            </div>
+                          )}
 
-                      return (
-                        <div
-                          key={
-                            image.id
-                          }
-                          className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                        >
+                          {primary && (
+                            <span className="absolute left-2 top-2 rounded-full bg-gray-900 px-2.5 py-1 text-xs font-medium text-white">
+                              Primary
+                            </span>
+                          )}
+                        </div>
 
-                          {/* Image */}
+                        {/* Actions */}
 
-                          <div className="relative aspect-square overflow-hidden bg-gray-100">
-
-                            {imageSrc ? (
-                              <img
-                                src={
-                                  imageSrc
-                                }
-                                alt={
-                                  image.alt_text ||
-                                  name ||
-                                  "Product image"
-                                }
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-xs text-gray-400">
-                                Image unavailable
-                              </div>
-                            )}
-
-                            {primary && (
-                              <span className="absolute left-2 top-2 rounded-full bg-gray-900 px-2.5 py-1 text-xs font-medium text-white">
-                                Primary
-                              </span>
-                            )}
-
-                          </div>
-
-                          {/* Actions */}
-
-                          <div className="space-y-2 p-3">
-
-                            {!primary && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPrimaryImage(
-                                    image.id
-                                  )
-                                }
-                                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
-                              >
-                                <Star
-                                  size={14}
-                                />
-
-                                Set Primary
-                              </button>
-                            )}
-
+                        <div className="space-y-2 p-3">
+                          {!primary && (
                             <button
                               type="button"
                               onClick={() =>
-                                deleteImage(
-                                  image.id
+                                setPrimaryImage(
+                                  image.id,
                                 )
                               }
-                              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                             >
-                              <Trash2
+                              <Star
                                 size={14}
                               />
 
-                              Delete
+                              Set Primary
                             </button>
+                          )}
 
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteImage(
+                                image.id,
+                              )
+                            }
+                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                          >
+                            <Trash2
+                              size={14}
+                            />
 
+                            Delete
+                          </button>
                         </div>
-                      );
-                    }
-                  )}
-
+                      </div>
+                    );
+                  })}
                 </div>
-
               )}
-
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1287,29 +1180,24 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
-
               <h2 className="font-semibold text-gray-900">
                 Base Pricing
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                Default product price.
-                Individual variants can have
-                their own price.
+                Default product price. Individual
+                variants can have their own price.
               </p>
 
               <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-
                 {/* MRP */}
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     MRP *
                   </label>
 
                   <div className="relative">
-
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
                       ₹
                     </span>
@@ -1322,26 +1210,22 @@ export default function EditProductPage() {
                       value={mrp}
                       onChange={(event) =>
                         setMrp(
-                          event.target.value
+                          event.target.value,
                         )
                       }
                       className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-gray-600"
                     />
-
                   </div>
-
                 </div>
 
                 {/* Selling Price */}
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Selling Price *
                   </label>
 
                   <div className="relative">
-
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
                       ₹
                     </span>
@@ -1351,23 +1235,17 @@ export default function EditProductPage() {
                       min="0"
                       step="0.01"
                       required
-                      value={
-                        sellingPrice
-                      }
+                      value={sellingPrice}
                       onChange={(event) =>
                         setSellingPrice(
-                          event.target.value
+                          event.target.value,
                         )
                       }
                       className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-gray-600"
                     />
-
                   </div>
-
                 </div>
-
               </div>
-
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1375,15 +1253,12 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
-
               <h2 className="font-semibold text-gray-900">
                 Product Details
               </h2>
 
               <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Base SKU
                   </label>
@@ -1393,16 +1268,14 @@ export default function EditProductPage() {
                     value={sku}
                     onChange={(event) =>
                       setSku(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
-
                 </div>
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Set Quantity
                   </label>
@@ -1410,21 +1283,16 @@ export default function EditProductPage() {
                   <input
                     type="number"
                     min="1"
-                    value={
-                      setQuantity
-                    }
+                    value={setQuantity}
                     onChange={(event) =>
                       setSetQuantity(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
-
                 </div>
-
               </div>
-
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1432,59 +1300,46 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
-
               <h2 className="font-semibold text-gray-900">
                 Search Engine Listing
               </h2>
 
               <div className="mt-5 space-y-5">
-
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     SEO Title
                   </label>
 
                   <input
                     type="text"
-                    value={
-                      seoTitle
-                    }
+                    value={seoTitle}
                     onChange={(event) =>
                       setSeoTitle(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
-
                 </div>
 
                 <div>
-
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     SEO Description
                   </label>
 
                   <textarea
                     rows={4}
-                    value={
-                      seoDescription
-                    }
+                    value={seoDescription}
                     onChange={(event) =>
                       setSeoDescription(
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
                   />
-
                 </div>
-
               </div>
-
             </section>
-
           </div>
 
           {/* ================================================================= */}
@@ -1492,29 +1347,24 @@ export default function EditProductPage() {
           {/* ================================================================= */}
 
           <div className="space-y-6">
-
             {/* ---------------------------------------------------------------- */}
             {/* STATUS                                                           */}
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-5">
-
               <h2 className="font-semibold text-gray-900">
                 Status
               </h2>
 
               <select
-                value={
-                  status
-                }
+                value={status}
                 onChange={(event) =>
                   setStatus(
-                    event.target.value
+                    event.target.value,
                   )
                 }
                 className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-gray-600"
               >
-
                 <option value="active">
                   Active
                 </option>
@@ -1522,9 +1372,7 @@ export default function EditProductPage() {
                 <option value="inactive">
                   Inactive
                 </option>
-
               </select>
-
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1532,48 +1380,75 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-5">
-
               <h2 className="font-semibold text-gray-900">
                 Category
               </h2>
 
               <select
-                value={
-                  categoryId
-                }
+                value={categoryId}
                 onChange={(event) =>
                   setCategoryId(
-                    event.target.value
+                    event.target.value,
                   )
                 }
                 className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-gray-600"
               >
-
                 <option value="">
                   Select category
                 </option>
 
                 {categories.map(
-                  (
-                    category
-                  ) => (
+                  (category) => (
                     <option
-                      key={
-                        category.id
-                      }
-                      value={
-                        category.id
-                      }
+                      key={category.id}
+                      value={category.id}
                     >
-                      {
-                        category.name
-                      }
+                      {category.name}
                     </option>
-                  )
+                  ),
                 )}
+              </select>
+            </section>
 
+            {/* ---------------------------------------------------------------- */}
+            {/* MATERIAL                                                         */}
+            {/* ---------------------------------------------------------------- */}
+
+            <section className="rounded-xl border border-gray-200 bg-white p-5">
+              <h2 className="font-semibold text-gray-900">
+                Material
+              </h2>
+
+              <select
+                value={materialId}
+                onChange={(event) =>
+                  setMaterialId(
+                    event.target.value,
+                  )
+                }
+                className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+              >
+                <option value="">
+                  Select material
+                </option>
+
+                {materials.map(
+                  (material) => (
+                    <option
+                      key={material.id}
+                      value={material.id}
+                    >
+                      {material.name}
+                    </option>
+                  ),
+                )}
               </select>
 
+              {materials.length === 0 && (
+                <p className="mt-2 text-xs text-gray-500">
+                  No active materials available.
+                </p>
+              )}
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1581,25 +1456,20 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-5">
-
               <h2 className="font-semibold text-gray-900">
                 Product Labels
               </h2>
 
               <div className="mt-4 space-y-4">
-
                 {/* Featured */}
 
                 <label className="flex cursor-pointer items-center gap-3">
-
                   <input
                     type="checkbox"
-                    checked={
-                      featured
-                    }
+                    checked={featured}
                     onChange={(event) =>
                       setFeatured(
-                        event.target.checked
+                        event.target.checked,
                       )
                     }
                     className="h-4 w-4"
@@ -1608,21 +1478,17 @@ export default function EditProductPage() {
                   <span className="text-sm text-gray-700">
                     Featured Product
                   </span>
-
                 </label>
 
                 {/* Best Seller */}
 
                 <label className="flex cursor-pointer items-center gap-3">
-
                   <input
                     type="checkbox"
-                    checked={
-                      bestSeller
-                    }
+                    checked={bestSeller}
                     onChange={(event) =>
                       setBestSeller(
-                        event.target.checked
+                        event.target.checked,
                       )
                     }
                     className="h-4 w-4"
@@ -1631,21 +1497,17 @@ export default function EditProductPage() {
                   <span className="text-sm text-gray-700">
                     Best Seller
                   </span>
-
                 </label>
 
                 {/* New Arrival */}
 
                 <label className="flex cursor-pointer items-center gap-3">
-
                   <input
                     type="checkbox"
-                    checked={
-                      newArrival
-                    }
+                    checked={newArrival}
                     onChange={(event) =>
                       setNewArrival(
-                        event.target.checked
+                        event.target.checked,
                       )
                     }
                     className="h-4 w-4"
@@ -1654,11 +1516,8 @@ export default function EditProductPage() {
                   <span className="text-sm text-gray-700">
                     New Arrival
                   </span>
-
                 </label>
-
               </div>
-
             </section>
 
             {/* ---------------------------------------------------------------- */}
@@ -1666,13 +1525,11 @@ export default function EditProductPage() {
             {/* ---------------------------------------------------------------- */}
 
             <section className="rounded-xl border border-gray-200 bg-white p-5">
-
               <h2 className="font-semibold text-gray-900">
                 Media
               </h2>
 
               <div className="mt-4">
-
                 <p className="text-3xl font-semibold text-gray-900">
                   {images.length}
                 </p>
@@ -1680,13 +1537,9 @@ export default function EditProductPage() {
                 <p className="mt-1 text-sm text-gray-500">
                   Product images uploaded
                 </p>
-
               </div>
-
             </section>
-
           </div>
-
         </div>
 
         {/* ==================================================================== */}
@@ -1694,7 +1547,6 @@ export default function EditProductPage() {
         {/* ==================================================================== */}
 
         <div className="mt-6 flex justify-end gap-3">
-
           <Link
             href="/admin/products"
             className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
@@ -1707,19 +1559,13 @@ export default function EditProductPage() {
             disabled={saving}
             className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
           >
-
-            <Save
-              size={18}
-            />
+            <Save size={18} />
 
             {saving
               ? "Updating..."
               : "Update product"}
-
           </button>
-
         </div>
-
       </form>
 
       {/* ==================================================================== */}
@@ -1727,15 +1573,10 @@ export default function EditProductPage() {
       {/* ==================================================================== */}
 
       <div className="mt-6">
-
         <ProductVariants
-          productId={
-            productId
-          }
+          productId={productId}
         />
-
       </div>
-
     </div>
   );
 }

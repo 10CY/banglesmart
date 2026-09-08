@@ -1,39 +1,19 @@
 "use client";
 
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
-import {
-  ChevronDown,
-  Package,
-  Sparkles,
-  Info,
-} from "lucide-react";
+import { ChevronDown, Package, Sparkles, Info } from "lucide-react";
 
-import type {
-  Product,
-} from "./product.types";
-
+import type { Product } from "./product.types";
 
 type Props = {
   product: Product;
 };
 
+export default function ProductDescription({ product }: Props) {
+  const [open, setOpen] = useState(true);
 
-export default function ProductDescription({
-  product,
-}: Props) {
-
-  const [open, setOpen] =
-    useState(true);
-
-
-  const pieces =
-    Number(
-      product.set_quantity || 1
-    );
-
+  const pieces = Number(product.set_quantity || 1);
 
   return (
     <section
@@ -47,18 +27,13 @@ export default function ProductDescription({
         shadow-[0_8px_30px_rgba(0,0,0,0.03)]
       "
     >
-
       {/* ================================================================
           HEADER
       ================================================================ */}
 
       <button
         type="button"
-        onClick={() =>
-          setOpen(
-            (value) => !value
-          )
-        }
+        onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className="
           group
@@ -76,7 +51,6 @@ export default function ProductDescription({
           sm:py-6
         "
       >
-
         <div
           className="
             flex
@@ -85,7 +59,6 @@ export default function ProductDescription({
             gap-4
           "
         >
-
           {/* ICON */}
 
           <div
@@ -101,16 +74,12 @@ export default function ProductDescription({
               text-[#c9a227]
             "
           >
-            <Sparkles
-              size={19}
-            />
+            <Sparkles size={19} />
           </div>
-
 
           {/* TITLE */}
 
           <div>
-
             <p
               className="
                 text-[10px]
@@ -122,7 +91,6 @@ export default function ProductDescription({
             >
               Product information
             </p>
-
 
             <h2
               className="
@@ -136,7 +104,6 @@ export default function ProductDescription({
               Product Details
             </h2>
 
-
             <p
               className="
                 mt-1
@@ -145,14 +112,10 @@ export default function ProductDescription({
                 sm:text-sm
               "
             >
-              Everything you need to know
-              about this piece.
+              Everything you need to know about this piece.
             </p>
-
           </div>
-
         </div>
-
 
         {/* CHEVRON */}
 
@@ -173,24 +136,16 @@ export default function ProductDescription({
             group-hover:border-gray-300
           "
         >
-
           <ChevronDown
             size={18}
             className={`
               transition-transform
               duration-300
-              ${
-                open
-                  ? "rotate-180"
-                  : "rotate-0"
-              }
+              ${open ? "rotate-180" : "rotate-0"}
             `}
           />
-
         </span>
-
       </button>
-
 
       {/* ================================================================
           CONTENT
@@ -202,16 +157,10 @@ export default function ProductDescription({
           transition-[grid-template-rows]
           duration-300
           ease-in-out
-          ${
-            open
-              ? "grid-rows-[1fr]"
-              : "grid-rows-[0fr]"
-          }
+          ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}
         `}
       >
-
         <div className="min-h-0 overflow-hidden">
-
           <div
             className="
               border-t
@@ -223,7 +172,6 @@ export default function ProductDescription({
               sm:pb-8
             "
           >
-
             {/* ==========================================================
                 QUICK DETAILS
             ========================================================== */}
@@ -233,11 +181,12 @@ export default function ProductDescription({
                 grid
                 gap-3
                 sm:grid-cols-2
-                lg:grid-cols-3
+                lg:grid-cols-4
               "
             >
-
-              {/* SET QUANTITY */}
+              {/* ========================================================
+                  SET QUANTITY
+              ======================================================== */}
 
               <div
                 className="
@@ -251,7 +200,6 @@ export default function ProductDescription({
                   p-4
                 "
               >
-
                 <div
                   className="
                     flex
@@ -266,16 +214,10 @@ export default function ProductDescription({
                     shadow-sm
                   "
                 >
-
-                  <Package
-                    size={18}
-                  />
-
+                  <Package size={18} />
                 </div>
 
-
-                <div>
-
+                <div className="min-w-0">
                   <p
                     className="
                       text-[10px]
@@ -288,7 +230,6 @@ export default function ProductDescription({
                     Set quantity
                   </p>
 
-
                   <p
                     className="
                       mt-1
@@ -297,21 +238,16 @@ export default function ProductDescription({
                       text-gray-900
                     "
                   >
-                    {pieces}{" "}
-                    {pieces === 1
-                      ? "Piece"
-                      : "Pieces"}
+                    {pieces} {pieces === 1 ? "Piece" : "Pieces"}
                   </p>
-
                 </div>
-
               </div>
 
-
-              {/* CATEGORY */}
+              {/* ========================================================
+                  CATEGORY
+              ======================================================== */}
 
               {product.category && (
-
                 <div
                   className="
                     flex
@@ -324,7 +260,6 @@ export default function ProductDescription({
                     p-4
                   "
                 >
-
                   <div
                     className="
                       flex
@@ -339,16 +274,10 @@ export default function ProductDescription({
                       shadow-sm
                     "
                   >
-
-                    <Sparkles
-                      size={18}
-                    />
-
+                    <Sparkles size={18} />
                   </div>
 
-
-                  <div>
-
+                  <div className="min-w-0">
                     <p
                       className="
                         text-[10px]
@@ -361,29 +290,88 @@ export default function ProductDescription({
                       Category
                     </p>
 
-
                     <p
                       className="
                         mt-1
+                        truncate
                         text-sm
                         font-semibold
                         text-gray-900
                       "
+                      title={product.category.name}
                     >
-                      {
-                        product.category
-                          .name
-                      }
+                      {product.category.name}
                     </p>
-
                   </div>
-
                 </div>
-
               )}
 
+              {/* ========================================================
+                  MATERIAL
+              ======================================================== */}
 
-              {/* PRODUCT TYPE */}
+              {product.material && (
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-3
+                    rounded-2xl
+                    border
+                    border-[#eee7dd]
+                    bg-[#fcfaf7]
+                    p-4
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-xl
+                      bg-white
+                      text-[#c9a227]
+                      shadow-sm
+                    "
+                  >
+                    <Sparkles size={18} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p
+                      className="
+                        text-[10px]
+                        font-semibold
+                        uppercase
+                        tracking-[0.12em]
+                        text-gray-400
+                      "
+                    >
+                      Material
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        truncate
+                        text-sm
+                        font-semibold
+                        text-gray-900
+                      "
+                      title={product.material.name}
+                    >
+                      {product.material.name}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================
+                  COLLECTION
+              ======================================================== */}
 
               <div
                 className="
@@ -397,7 +385,6 @@ export default function ProductDescription({
                   p-4
                 "
               >
-
                 <div
                   className="
                     flex
@@ -412,16 +399,10 @@ export default function ProductDescription({
                     shadow-sm
                   "
                 >
-
-                  <Info
-                    size={18}
-                  />
-
+                  <Info size={18} />
                 </div>
 
-
-                <div>
-
+                <div className="min-w-0">
                   <p
                     className="
                       text-[10px]
@@ -434,7 +415,6 @@ export default function ProductDescription({
                     Collection
                   </p>
 
-
                   <p
                     className="
                       mt-1
@@ -443,23 +423,19 @@ export default function ProductDescription({
                       font-semibold
                       text-gray-900
                     "
+                    title={product.name}
                   >
                     {product.name}
                   </p>
-
                 </div>
-
               </div>
-
             </div>
-
 
             {/* ==========================================================
                 DESCRIPTION
             ========================================================== */}
 
             <div className="mt-7">
-
               <div
                 className="
                   mb-3
@@ -468,7 +444,6 @@ export default function ProductDescription({
                   gap-3
                 "
               >
-
                 <span
                   className="
                     h-px
@@ -486,12 +461,9 @@ export default function ProductDescription({
                 >
                   About this piece
                 </h3>
-
               </div>
 
-
               {product.description ? (
-
                 <div
                   className="
                     rounded-2xl
@@ -501,7 +473,6 @@ export default function ProductDescription({
                     sm:px-6
                   "
                 >
-
                   <p
                     className="
                       whitespace-pre-line
@@ -510,15 +481,10 @@ export default function ProductDescription({
                       text-gray-600
                     "
                   >
-                    {
-                      product.description
-                    }
+                    {product.description}
                   </p>
-
                 </div>
-
               ) : (
-
                 <div
                   className="
                     rounded-2xl
@@ -530,30 +496,23 @@ export default function ProductDescription({
                     text-center
                   "
                 >
-
                   <p
                     className="
                       text-sm
                       text-gray-500
                     "
                   >
-                    Product details are
-                    currently unavailable.
+                    Product details are currently unavailable.
                   </p>
-
                 </div>
-
               )}
-
             </div>
-
 
             {/* ==========================================================
                 SHORT DESCRIPTION
             ========================================================== */}
 
             {product.short_description && (
-
               <div
                 className="
                   mt-6
@@ -562,7 +521,6 @@ export default function ProductDescription({
                   pt-6
                 "
               >
-
                 <p
                   className="
                     text-sm
@@ -573,7 +531,6 @@ export default function ProductDescription({
                   Product overview
                 </p>
 
-
                 <p
                   className="
                     mt-2
@@ -582,21 +539,13 @@ export default function ProductDescription({
                     text-gray-600
                   "
                 >
-                  {
-                    product.short_description
-                  }
+                  {product.short_description}
                 </p>
-
               </div>
-
             )}
-
           </div>
-
         </div>
-
       </div>
-
     </section>
   );
 }

@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  FormEvent,
-  useEffect,
-  useState,
-} from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import {
-  ArrowLeft,
-  Save,
-} from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 
@@ -23,144 +16,126 @@ type Category = {
   status: string;
 };
 
+type Material = {
+  id: number;
+  name: string;
+  status: string;
+};
+
 export default function CreateProductPage() {
-  const router =
-    useRouter();
+  const router = useRouter();
 
-  const [
-    categories,
-    setCategories,
-  ] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
 
-  const [
-    name,
-    setName,
-  ] = useState("");
+  const [name, setName] = useState("");
 
-  const [
-    categoryId,
-    setCategoryId,
-  ] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [materialId, setMaterialId] = useState("");
 
-  const [
-    sku,
-    setSku,
-  ] = useState("");
+  const [sku, setSku] = useState("");
 
-  const [
-    shortDescription,
-    setShortDescription,
-  ] = useState("");
+  const [shortDescription, setShortDescription] = useState("");
 
-  const [
-    description,
-    setDescription,
-  ] = useState("");
+  const [description, setDescription] = useState("");
 
-  const [
-    mrp,
-    setMrp,
-  ] = useState("");
+  const [mrp, setMrp] = useState("");
 
-  const [
-    sellingPrice,
-    setSellingPrice,
-  ] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
 
-  const [
-    setQuantity,
-    setSetQuantity,
-  ] = useState("1");
+  const [setQuantity, setSetQuantity] = useState("1");
 
-  const [
-    status,
-    setStatus,
-  ] = useState("active");
+  const [status, setStatus] = useState("active");
 
-  const [
-    featured,
-    setFeatured,
-  ] = useState(false);
+  const [featured, setFeatured] = useState(false);
 
-  const [
-    bestSeller,
-    setBestSeller,
-  ] = useState(false);
+  const [bestSeller, setBestSeller] = useState(false);
 
-  const [
-    newArrival,
-    setNewArrival,
-  ] = useState(false);
+  const [newArrival, setNewArrival] = useState(false);
 
-  const [
-    seoTitle,
-    setSeoTitle,
-  ] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
 
-  const [
-    seoDescription,
-    setSeoDescription,
-  ] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
 
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [
-    error,
-    setError,
-  ] = useState("");
+  const [error, setError] = useState("");
 
   /*
   |--------------------------------------------------------------------------
-  | Load categories
+  | Load categories and materials
   |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCategories() {
+    async function loadData() {
       try {
-        const response =
-          await apiFetch(
-            "/admin/categories"
-          );
+        const [categoryResponse, materialResponse] =
+          await Promise.all([
+            apiFetch("/admin/categories"),
+            apiFetch("/admin/materials"),
+          ]);
 
-        const data =
-          await response.json();
+        const categoryData = await categoryResponse.json();
+        const materialData = await materialResponse.json();
 
-        if (
-          !cancelled &&
-          response.ok
-        ) {
-          const rows =
-            Array.isArray(
-              data?.data
-            )
-              ? data.data
-              : [];
+        if (cancelled) {
+          return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Categories
+        |--------------------------------------------------------------------------
+        */
+
+        if (categoryResponse.ok) {
+          const categoryRows = Array.isArray(categoryData?.data)
+            ? categoryData.data
+            : [];
 
           setCategories(
-            rows.filter(
-              (
-                category: Category
-              ) =>
-                category.status ===
-                "active"
-            )
+            categoryRows.filter(
+              (category: Category) =>
+                category.status === "active",
+            ),
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Materials
+        |--------------------------------------------------------------------------
+        */
+
+        if (materialResponse.ok) {
+          const materialRows = Array.isArray(materialData?.data)
+            ? materialData.data
+            : [];
+
+          setMaterials(
+            materialRows.filter(
+              (material: Material) =>
+                material.status === "active",
+            ),
+          );
+        } else {
+          console.error(
+            "Unable to load materials:",
+            materialData,
           );
         }
       } catch (error) {
         console.error(
-          "Load categories error:",
-          error
+          "Load product options error:",
+          error,
         );
       }
     }
 
-    loadCategories();
+    loadData();
 
     return () => {
       cancelled = true;
@@ -174,7 +149,7 @@ export default function CreateProductPage() {
   */
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
@@ -182,14 +157,10 @@ export default function CreateProductPage() {
     setSaving(true);
 
     try {
-      const trimmedName =
-        name.trim();
+      const trimmedName = name.trim();
 
       if (!trimmedName) {
-        setError(
-          "Product name is required."
-        );
-
+        setError("Product name is required.");
         return;
       }
 
@@ -205,100 +176,79 @@ export default function CreateProductPage() {
       const payload = {
         name: trimmedName,
 
-        category_id:
-          categoryId
-            ? Number(categoryId)
-            : null,
+        category_id: categoryId
+          ? Number(categoryId)
+          : null,
 
-        sku:
-          sku.trim()
-            ? sku.trim()
-            : null,
+        material_id: materialId
+          ? Number(materialId)
+          : null,
 
-        short_description:
-          shortDescription.trim()
-            ? shortDescription.trim()
-            : null,
+        sku: sku.trim()
+          ? sku.trim()
+          : null,
 
-        description:
-          description.trim()
-            ? description.trim()
-            : null,
+        short_description: shortDescription.trim()
+          ? shortDescription.trim()
+          : null,
 
-        mrp:
-          mrp !== ""
-            ? Number(mrp)
-            : 0,
+        description: description.trim()
+          ? description.trim()
+          : null,
 
-        selling_price:
-          sellingPrice !== ""
-            ? Number(sellingPrice)
-            : 0,
+        mrp: mrp !== ""
+          ? Number(mrp)
+          : 0,
 
-        set_quantity:
-          setQuantity !== ""
-            ? Number(setQuantity)
-            : 1,
+        selling_price: sellingPrice !== ""
+          ? Number(sellingPrice)
+          : 0,
 
-        status:
-          status || "active",
+        set_quantity: setQuantity !== ""
+          ? Number(setQuantity)
+          : 1,
 
-        featured:
-          Boolean(featured),
+        status: status || "active",
 
-        best_seller:
-          Boolean(bestSeller),
+        featured: Boolean(featured),
 
-        new_arrival:
-          Boolean(newArrival),
+        best_seller: Boolean(bestSeller),
 
-        seo_title:
-          seoTitle.trim()
-            ? seoTitle.trim()
-            : null,
+        new_arrival: Boolean(newArrival),
 
-        seo_description:
-          seoDescription.trim()
-            ? seoDescription.trim()
-            : null,
+        seo_title: seoTitle.trim()
+          ? seoTitle.trim()
+          : null,
+
+        seo_description: seoDescription.trim()
+          ? seoDescription.trim()
+          : null,
       };
 
-      const response =
-        await apiFetch(
-          "/admin/products",
-          {
-            method: "POST",
+      const response = await apiFetch(
+        "/admin/products",
+        {
+          method: "POST",
 
-            body:
-              JSON.stringify(
-                payload
-              ),
-          }
-        );
+          body: JSON.stringify(payload),
+        },
+      );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        const validationErrors =
-          data?.errors as
-            | Record<
-                string,
-                string[]
-              >
-            | undefined;
+        const validationErrors = data?.errors as
+          | Record<string, string[]>
+          | undefined;
 
-        const firstError =
-          validationErrors
-            ? Object.values(
-                validationErrors
-              )[0]?.[0]
-            : undefined;
+        const firstError = validationErrors
+          ? Object.values(validationErrors)[0]?.[0]
+          : undefined;
 
         setError(
           firstError ||
             data?.message ||
-            "Unable to create product."
+            "Unable to create product.",
         );
 
         return;
@@ -310,19 +260,17 @@ export default function CreateProductPage() {
       |--------------------------------------------------------------------------
       */
 
-      router.push(
-        "/admin/products"
-      );
+      router.push("/admin/products");
 
       router.refresh();
     } catch (error) {
       console.error(
         "Create product error:",
-        error
+        error,
       );
 
       setError(
-        "Unable to connect to the server."
+        "Unable to connect to the server.",
       );
     } finally {
       setSaving(false);
@@ -330,11 +278,7 @@ export default function CreateProductPage() {
   }
 
   return (
-    <form
-      onSubmit={
-        handleSubmit
-      }
-    >
+    <form onSubmit={handleSubmit}>
       {/* ------------------------------------------------------------------ */}
       {/* HEADER                                                             */}
       {/* ------------------------------------------------------------------ */}
@@ -345,9 +289,7 @@ export default function CreateProductPage() {
             href="/admin/products"
             className="rounded-lg border border-gray-200 p-2 hover:bg-gray-100"
           >
-            <ArrowLeft
-              size={19}
-            />
+            <ArrowLeft size={19} />
           </Link>
 
           <div>
@@ -356,8 +298,7 @@ export default function CreateProductPage() {
             </h1>
 
             <p className="mt-1 text-sm text-gray-500">
-              Add a new product to
-              BanglesMart.
+              Add a new product to BanglesMart.
             </p>
           </div>
         </div>
@@ -367,9 +308,7 @@ export default function CreateProductPage() {
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50"
         >
-          <Save
-            size={18}
-          />
+          <Save size={18} />
 
           {saving
             ? "Saving..."
@@ -408,13 +347,8 @@ export default function CreateProductPage() {
                   type="text"
                   required
                   value={name}
-                  onChange={(
-                    event
-                  ) =>
-                    setName(
-                      event.target
-                        .value
-                    )
+                  onChange={(event) =>
+                    setName(event.target.value)
                   }
                   placeholder="Royal Kundan Bridal Bangle Set"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
@@ -428,15 +362,10 @@ export default function CreateProductPage() {
 
                 <textarea
                   rows={3}
-                  value={
-                    shortDescription
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  value={shortDescription}
+                  onChange={(event) =>
                     setShortDescription(
-                      event.target
-                        .value
+                      event.target.value,
                     )
                   }
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none"
@@ -450,15 +379,10 @@ export default function CreateProductPage() {
 
                 <textarea
                   rows={7}
-                  value={
-                    description
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  value={description}
+                  onChange={(event) =>
                     setDescription(
-                      event.target
-                        .value
+                      event.target.value,
                     )
                   }
                   placeholder="Product details..."
@@ -492,13 +416,8 @@ export default function CreateProductPage() {
                     step="0.01"
                     required
                     value={mrp}
-                    onChange={(
-                      event
-                    ) =>
-                      setMrp(
-                        event.target
-                          .value
-                      )
+                    onChange={(event) =>
+                      setMrp(event.target.value)
                     }
                     className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none"
                   />
@@ -520,15 +439,10 @@ export default function CreateProductPage() {
                     min="0"
                     step="0.01"
                     required
-                    value={
-                      sellingPrice
-                    }
-                    onChange={(
-                      event
-                    ) =>
+                    value={sellingPrice}
+                    onChange={(event) =>
                       setSellingPrice(
-                        event.target
-                          .value
+                        event.target.value,
                       )
                     }
                     className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none"
@@ -554,13 +468,8 @@ export default function CreateProductPage() {
                 <input
                   type="text"
                   value={sku}
-                  onChange={(
-                    event
-                  ) =>
-                    setSku(
-                      event.target
-                        .value
-                    )
+                  onChange={(event) =>
+                    setSku(event.target.value)
                   }
                   placeholder="RKB-001"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none"
@@ -575,15 +484,10 @@ export default function CreateProductPage() {
                 <input
                   type="number"
                   min="1"
-                  value={
-                    setQuantity
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  value={setQuantity}
+                  onChange={(event) =>
                     setSetQuantity(
-                      event.target
-                        .value
+                      event.target.value,
                     )
                   }
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none"
@@ -607,15 +511,10 @@ export default function CreateProductPage() {
 
                 <input
                   type="text"
-                  value={
-                    seoTitle
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  value={seoTitle}
+                  onChange={(event) =>
                     setSeoTitle(
-                      event.target
-                        .value
+                      event.target.value,
                     )
                   }
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none"
@@ -629,15 +528,10 @@ export default function CreateProductPage() {
 
                 <textarea
                   rows={4}
-                  value={
-                    seoDescription
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  value={seoDescription}
+                  onChange={(event) =>
                     setSeoDescription(
-                      event.target
-                        .value
+                      event.target.value,
                     )
                   }
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none"
@@ -659,13 +553,8 @@ export default function CreateProductPage() {
 
             <select
               value={status}
-              onChange={(
-                event
-              ) =>
-                setStatus(
-                  event.target
-                    .value
-                )
+              onChange={(event) =>
+                setStatus(event.target.value)
               }
               className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm"
             >
@@ -687,15 +576,10 @@ export default function CreateProductPage() {
             </h2>
 
             <select
-              value={
-                categoryId
-              }
-              onChange={(
-                event
-              ) =>
+              value={categoryId}
+              onChange={(event) =>
                 setCategoryId(
-                  event.target
-                    .value
+                  event.target.value,
                 )
               }
               className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm"
@@ -704,25 +588,52 @@ export default function CreateProductPage() {
                 Select category
               </option>
 
-              {categories.map(
-                (
-                  category
-                ) => (
-                  <option
-                    key={
-                      category.id
-                    }
-                    value={
-                      category.id
-                    }
-                  >
-                    {
-                      category.name
-                    }
-                  </option>
-                )
-              )}
+              {categories.map((category) => (
+                <option
+                  key={category.id}
+                  value={category.id}
+                >
+                  {category.name}
+                </option>
+              ))}
             </select>
+          </section>
+
+          {/* Material */}
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="font-semibold text-gray-900">
+              Material
+            </h2>
+
+            <select
+              value={materialId}
+              onChange={(event) =>
+                setMaterialId(
+                  event.target.value,
+                )
+              }
+              className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm"
+            >
+              <option value="">
+                Select material
+              </option>
+
+              {materials.map((material) => (
+                <option
+                  key={material.id}
+                  value={material.id}
+                >
+                  {material.name}
+                </option>
+              ))}
+            </select>
+
+            {materials.length === 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                No active materials available.
+              </p>
+            )}
           </section>
 
           {/* Product Labels */}
@@ -736,15 +647,10 @@ export default function CreateProductPage() {
               <label className="flex cursor-pointer items-center gap-3">
                 <input
                   type="checkbox"
-                  checked={
-                    featured
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  checked={featured}
+                  onChange={(event) =>
                     setFeatured(
-                      event.target
-                        .checked
+                      event.target.checked,
                     )
                   }
                   className="h-4 w-4"
@@ -758,15 +664,10 @@ export default function CreateProductPage() {
               <label className="flex cursor-pointer items-center gap-3">
                 <input
                   type="checkbox"
-                  checked={
-                    bestSeller
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  checked={bestSeller}
+                  onChange={(event) =>
                     setBestSeller(
-                      event.target
-                        .checked
+                      event.target.checked,
                     )
                   }
                   className="h-4 w-4"
@@ -780,15 +681,10 @@ export default function CreateProductPage() {
               <label className="flex cursor-pointer items-center gap-3">
                 <input
                   type="checkbox"
-                  checked={
-                    newArrival
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  checked={newArrival}
+                  onChange={(event) =>
                     setNewArrival(
-                      event.target
-                        .checked
+                      event.target.checked,
                     )
                   }
                   className="h-4 w-4"
@@ -818,9 +714,7 @@ export default function CreateProductPage() {
           disabled={saving}
           className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50"
         >
-          <Save
-            size={18}
-          />
+          <Save size={18} />
 
           {saving
             ? "Saving..."

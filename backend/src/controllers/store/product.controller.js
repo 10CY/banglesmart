@@ -36,6 +36,20 @@ function product(p, images = []) {
 
     /*
     |--------------------------------------------------------------------------
+    | Material
+    |--------------------------------------------------------------------------
+    */
+
+    material:
+      p.material_id
+        ? {
+            id: Number(p.material_id),
+            name: p.material_name || "",
+          }
+        : null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Primary image
     |--------------------------------------------------------------------------
     */
@@ -60,14 +74,13 @@ function product(p, images = []) {
       product_id: Number(i.product_id),
       image: i.image,
       alt_text: i.alt_text || null,
+
       is_primary:
         Number(i.is_primary) === 1 ||
         i.is_primary === true,
+
       sort_order: Number(i.sort_order || 0),
 
-      /*
-      | Frontend should use this URL directly.
-      */
       url: imageUrl(i.image),
     })),
   };
@@ -77,14 +90,6 @@ function product(p, images = []) {
 |--------------------------------------------------------------------------
 | Serialize variants
 |--------------------------------------------------------------------------
-|
-| IMPORTANT:
-| Frontend expects:
-|
-| variant.size
-| variant.color
-| variant.inventory
-|
 */
 
 function serializeVariant(v) {
@@ -131,12 +136,6 @@ function serializeVariant(v) {
     status:
       v.status || "active",
 
-    /*
-    |--------------------------------------------------------------------------
-    | Size
-    |--------------------------------------------------------------------------
-    */
-
     size:
       v.size_id
         ? {
@@ -149,12 +148,6 @@ function serializeVariant(v) {
           }
         : null,
 
-    /*
-    |--------------------------------------------------------------------------
-    | Color
-    |--------------------------------------------------------------------------
-    */
-
     color:
       v.color_id
         ? {
@@ -164,6 +157,7 @@ function serializeVariant(v) {
               v.color_display_name ||
               v.color_name ||
               null,
+
             hex_code:
               v.color_hex_code ||
               v.hex_code ||
@@ -171,20 +165,16 @@ function serializeVariant(v) {
           }
         : null,
 
-    /*
-    |--------------------------------------------------------------------------
-    | Inventory
-    |--------------------------------------------------------------------------
-    */
-
     inventory:
       v.inventory_id ||
       v.quantity !== null ||
       v.reserved_quantity !== null
         ? {
             quantity,
+
             reserved_quantity:
               reservedQuantity,
+
             available_quantity:
               availableQuantity,
           }
@@ -204,10 +194,17 @@ export async function index(req, res) {
       SELECT
         p.*,
         c.name AS category_name,
-        c.slug AS category_slug
+        c.slug AS category_slug,
+        m.name AS material_name
+
       FROM products p
+
       LEFT JOIN categories c
         ON c.id = p.category_id
+
+      LEFT JOIN materials m
+        ON m.id = p.material_id
+
       WHERE p.status = 'active'
     `;
 
@@ -458,12 +455,20 @@ export async function show(req, res) {
             SELECT
               p.*,
               c.name AS category_name,
-              c.slug AS category_slug
+              c.slug AS category_slug,
+              m.name AS material_name
+
             FROM products p
+
             LEFT JOIN categories c
               ON c.id = p.category_id
+
+            LEFT JOIN materials m
+              ON m.id = p.material_id
+
             WHERE p.slug = ?
               AND p.status = 'active'
+
             LIMIT 1
           `,
           [req.params.slug]
@@ -502,10 +507,6 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     | Variants
     |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    | Return nested size/color/inventory objects.
-    |
     */
 
     const variantRows =
@@ -595,6 +596,7 @@ export async function show(req, res) {
         `
           SELECT
             COUNT(*) AS review_count,
+
             COALESCE(
               AVG(rating),
               0
@@ -624,9 +626,6 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     | Recommended products
     |--------------------------------------------------------------------------
-    |
-    | Same category.
-    | Current product excluded.
     */
 
     let recommended =
@@ -638,13 +637,19 @@ export async function show(req, res) {
           `
             SELECT
               p.*,
+
               c.name AS category_name,
-              c.slug AS category_slug
+              c.slug AS category_slug,
+
+              m.name AS material_name
 
             FROM products p
 
             LEFT JOIN categories c
               ON c.id = p.category_id
+
+            LEFT JOIN materials m
+              ON m.id = p.material_id
 
             WHERE p.status = 'active'
               AND p.category_id = ?
@@ -663,12 +668,6 @@ export async function show(req, res) {
             p.id,
           ]
         );
-
-      /*
-      |----------------------------------------------------------------------
-      | Load recommendation images
-      |----------------------------------------------------------------------
-      */
 
       for (
         const recommendation
@@ -705,51 +704,77 @@ export async function show(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Global fallback
+    | Global fallback recommendations
     |--------------------------------------------------------------------------
-    |
-    | A product page should not lose its recommendation area simply because
-    | its category contains fewer than two active products.
-    |
     */
 
-    if (recommended.length === 0) {
-      const fallbackRows = await query(
-        `
-          SELECT
-            p.*,
-            c.name AS category_name,
-            c.slug AS category_slug
-          FROM products p
-          LEFT JOIN categories c
-            ON c.id = p.category_id
-          WHERE p.status = 'active'
-            AND p.id <> ?
-          ORDER BY
-            p.best_seller DESC,
-            p.featured DESC,
-            p.new_arrival DESC,
-            p.id DESC
-          LIMIT 4
-        `,
-        [p.id]
-      );
-
-      for (const recommendation of fallbackRows) {
-        recommendation.images = await query(
+    if (
+      recommended.length === 0
+    ) {
+      const fallbackRows =
+        await query(
           `
-            SELECT *
-            FROM product_images
-            WHERE product_id = ?
-            ORDER BY is_primary DESC, sort_order, id
+            SELECT
+              p.*,
+
+              c.name AS category_name,
+              c.slug AS category_slug,
+
+              m.name AS material_name
+
+            FROM products p
+
+            LEFT JOIN categories c
+              ON c.id = p.category_id
+
+            LEFT JOIN materials m
+              ON m.id = p.material_id
+
+            WHERE p.status = 'active'
+              AND p.id <> ?
+
+            ORDER BY
+              p.best_seller DESC,
+              p.featured DESC,
+              p.new_arrival DESC,
+              p.id DESC
+
+            LIMIT 4
           `,
-          [recommendation.id]
+          [p.id]
         );
+
+      for (
+        const recommendation
+        of fallbackRows
+      ) {
+        recommendation.images =
+          await query(
+            `
+              SELECT *
+              FROM product_images
+
+              WHERE product_id = ?
+
+              ORDER BY
+                is_primary DESC,
+                sort_order,
+                id
+            `,
+            [
+              recommendation.id,
+            ]
+          );
       }
 
-      recommended = fallbackRows.map((recommendation) =>
-        product(recommendation, recommendation.images)
-      );
+      recommended =
+        fallbackRows.map(
+          (recommendation) =>
+            product(
+              recommendation,
+              recommendation.images
+            )
+        );
     }
 
     /*
@@ -770,19 +795,7 @@ export async function show(req, res) {
       data: {
         ...serializedProduct,
 
-        /*
-        |--------------------------------------------------------------------------
-        | Variants
-        |--------------------------------------------------------------------------
-        */
-
         variants,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Reviews
-        |--------------------------------------------------------------------------
-        */
 
         reviews,
 
@@ -791,12 +804,6 @@ export async function show(req, res) {
 
         review_average:
           reviewAverage,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Recommended
-        |--------------------------------------------------------------------------
-        */
 
         recommended,
       },

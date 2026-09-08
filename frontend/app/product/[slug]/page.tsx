@@ -1012,6 +1012,19 @@ export default function ProductDetailPage() {
               </Link>
             )}
 
+            {/* MATERIAL */}
+
+            {product.material && (
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#faf7ef] px-3 py-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                  Material
+                </span>
+                <span className="text-xs font-semibold text-gray-800">
+                  {product.material.name}
+                </span>
+              </div>
+            )}
+
             {/* NAME */}
 
             <h1 className="mt-3 font-[family-name:var(--font-playfair)] text-3xl leading-tight text-gray-900 sm:text-4xl">
