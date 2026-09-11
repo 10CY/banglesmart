@@ -5,11 +5,27 @@ import StoreChrome from "@/components/store/StoreChrome";
 
 export const metadata: Metadata = {
   title: {
-    default: "BanglesMart | Premium Bangles & Jewellery",
+    default: "Bangles Online in India | BanglesMart",
     template: "%s | BanglesMart",
   },
+
   description:
-    "Premium bangles and jewellery for weddings, festivals and everyday elegance.",
+    "Shop stylish bangles online in India at BanglesMart. Explore bridal, wedding, designer, kundan and traditional bangles for every occasion.",
+
+  keywords: [
+    "bangles online",
+    "bangles online India",
+    "bangles online shopping",
+    "buy bangles online",
+    "bridal bangles",
+    "designer bangles",
+    "kundan bangles",
+    "traditional bangles",
+  ],
+
+  alternates: {
+    canonical: "https://banglesmart.com/",
+  },
 };
 
 export default function RootLayout({
@@ -21,20 +37,21 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <StoreChrome>{children}</StoreChrome>
+
         <Script
-            src="https://www.googletagmanager.com/gtag/js?id=G-7CQDD0CSQ6"
-            strategy="afterInteractive"
-          />
+          src="https://www.googletagmanager.com/gtag/js?id=G-7CQDD0CSQ6"
+          strategy="afterInteractive"
+        />
 
-          <Script id="google-analytics" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){window.dataLayer.push(arguments);}
-              gtag('js', new Date());
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('js', new Date());
 
-              gtag('config', 'G-7CQDD0CSQ6');
-            `}
-          </Script>
+            gtag('config', 'G-7CQDD0CSQ6');
+          `}
+        </Script>
       </body>
     </html>
   );
