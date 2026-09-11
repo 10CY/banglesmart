@@ -16,6 +16,7 @@ import * as invoice from "../controllers/admin/invoice.controller.js";
 import * as returns from "../controllers/admin/return.controller.js";
 import * as newsletter from "../controllers/admin/newsletter.controller.js";
 import * as audit from "../controllers/admin/audit.controller.js";
+import * as notification from "../controllers/admin/notification.controller.js";
 
 import { auth as guard } from "../middleware/auth.js";
 import { imageUpload } from "../middleware/upload.js";
@@ -398,6 +399,27 @@ r.get(
 r.put(
   "/shipping-settings",
   ship.update,
+);
+
+/*
+|--------------------------------------------------------------------------
+| NOTIFICATIONS
+|--------------------------------------------------------------------------
+*/
+
+r.get(
+  "/notifications",
+  notification.index,
+);
+
+r.put(
+  "/notifications/read-all",
+  notification.readAll,
+);
+
+r.put(
+  "/notifications/:id/read",
+  notification.read,
 );
 
 export default r;
