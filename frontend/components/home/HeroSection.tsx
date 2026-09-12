@@ -24,7 +24,7 @@ export default function HeroSection() {
         <div className="absolute inset-0">
           <img
             src="/hero-img.webp"
-            alt="Luxury bridal bangles collection"
+            alt="Elegant bangles for women"
             className="
               h-full
               w-full
@@ -127,7 +127,7 @@ export default function HeroSection() {
                 xl:text-[76px]
               "
             >
-              Timeless Beauty,
+              Timeless Bangles for Women
             </h1>
 
             {/* SCRIPT STYLE TEXT */}
@@ -161,8 +161,9 @@ export default function HeroSection() {
                 sm:text-base
               "
             >
-              Discover our handcrafted bangles, designed to
-              celebrate every special moment of your life.
+              Discover handcrafted bangles designed with timeless elegance for
+              everyday wear, weddings, festive occasions, and every special
+              moment.
             </p>
 
             {/* ================= FEATURES ================= */}
@@ -180,10 +181,7 @@ export default function HeroSection() {
               {/* PREMIUM */}
 
               <div className="flex items-center gap-3 pr-6 sm:border-r sm:border-[#b99248]/40">
-                <Gem
-                  size={22}
-                  strokeWidth={1.5}
-                />
+                <Gem size={22} strokeWidth={1.5} />
 
                 <div>
                   <p
@@ -215,10 +213,7 @@ export default function HeroSection() {
               {/* HANDCRAFTED */}
 
               <div className="flex items-center gap-3 px-0 sm:px-6 sm:border-r sm:border-[#b99248]/40">
-                <Crown
-                  size={22}
-                  strokeWidth={1.5}
-                />
+                <Crown size={22} strokeWidth={1.5} />
 
                 <div>
                   <p
@@ -250,10 +245,7 @@ export default function HeroSection() {
               {/* TRUST */}
 
               <div className="flex items-center gap-3 px-0 sm:pl-6">
-                <ShieldCheck
-                  size={22}
-                  strokeWidth={1.5}
-                />
+                <ShieldCheck size={22} strokeWidth={1.5} />
 
                 <div>
                   <p
