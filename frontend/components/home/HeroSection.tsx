@@ -103,13 +103,12 @@ export default function HeroSection() {
               "
             >
               <span className="h-px w-8 bg-[#c99a35]" />
-
               <Sparkles size={14} />
-
               New Collection
-
               <span className="hidden h-px w-8 bg-[#c99a35] sm:block" />
             </div>
+
+            {/* ================= HEADING ================= */}
 
             {/* ================= HEADING ================= */}
 
@@ -127,7 +126,7 @@ export default function HeroSection() {
                 xl:text-[76px]
               "
             >
-              Timeless Bangles for Women
+              Bangles for Women
             </h1>
 
             {/* SCRIPT STYLE TEXT */}
@@ -145,7 +144,7 @@ export default function HeroSection() {
                 xl:text-7xl
               "
             >
-              Made for You
+              Everyday Elegance.
               <span className="ml-3 text-[#d6a947]">♡</span>
             </div>
 
@@ -314,7 +313,6 @@ export default function HeroSection() {
                 "
               >
                 Shop Now
-
                 <ArrowRight
                   size={16}
                   className="
@@ -408,11 +406,7 @@ export default function HeroSection() {
               sm:px-8
             "
           >
-            <Truck
-              size={28}
-              strokeWidth={1.3}
-              className="text-[#5b3a2d]"
-            />
+            <Truck size={28} strokeWidth={1.3} className="text-[#5b3a2d]" />
 
             <div>
               <p
@@ -446,11 +440,7 @@ export default function HeroSection() {
               sm:px-8
             "
           >
-            <RefreshCw
-              size={26}
-              strokeWidth={1.3}
-              className="text-[#5b3a2d]"
-            />
+            <RefreshCw size={26} strokeWidth={1.3} className="text-[#5b3a2d]" />
 
             <div>
               <p
@@ -465,9 +455,7 @@ export default function HeroSection() {
                 Easy Returns
               </p>
 
-              <p className="mt-1 text-[10px] text-[#777]">
-                Within 7 days
-              </p>
+              <p className="mt-1 text-[10px] text-[#777]">Within 7 days</p>
             </div>
           </div>
 
@@ -541,9 +529,7 @@ export default function HeroSection() {
                 24/7 Support
               </p>
 
-              <p className="mt-1 text-[10px] text-[#777]">
-                We're here to help
-              </p>
+              <p className="mt-1 text-[10px] text-[#777]">We're here to help</p>
             </div>
           </div>
         </div>
