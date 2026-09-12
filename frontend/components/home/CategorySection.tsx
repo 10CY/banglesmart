@@ -15,16 +15,13 @@ type Category = {
 };
 
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
 /* -------------------------------------------------------------------------- */
 /* IMAGE URL                                                                  */
 /* -------------------------------------------------------------------------- */
 
-function getCategoryImage(
-  category: Category,
-): string {
+function getCategoryImage(category: Category): string {
   if (category.image_url) {
     return category.image_url;
   }
@@ -39,27 +36,11 @@ function getCategoryImage(
     return "";
   }
 
-  if (
-    image.startsWith("http://") ||
-    image.startsWith("https://")
-  ) {
+  if (image.startsWith("http://") || image.startsWith("https://")) {
     return image;
   }
 
-  const cleanImage = image.replace(
-    /^\/+/,
-    "",
-  );
-
-  /*
-   * Backend stores category images like:
-   *
-   * categories/example.png
-   *
-   * So final URL becomes:
-   *
-   * http://127.0.0.1:8000/storage/categories/example.png
-   */
+  const cleanImage = image.replace(/^\/+/, "");
 
   return `${BACKEND_URL}/storage/${cleanImage}`;
 }
@@ -69,14 +50,11 @@ function getCategoryImage(
 /* -------------------------------------------------------------------------- */
 
 export default function CategorySection() {
-  const [mounted, setMounted] =
-    useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const [categories, setCategories] =
-    useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
   /* ------------------------------------------------------------------------ */
   /* MOUNT                                                                    */
@@ -87,7 +65,7 @@ export default function CategorySection() {
   }, []);
 
   /* ------------------------------------------------------------------------ */
-  /* FETCH                                                                     */
+  /* FETCH                                                                    */
   /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
@@ -101,48 +79,21 @@ export default function CategorySection() {
       try {
         setLoading(true);
 
-        const response =
-          await storeApiFetch(
-            "/store/categories",
-          );
+        const response = await storeApiFetch("/store/categories");
 
-        const json =
-          await response.json();
+        const json = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            json?.message ||
-              "Failed to load categories.",
-          );
+          throw new Error(json?.message || "Failed to load categories.");
         }
 
-        if (
-          !cancelled &&
-          Array.isArray(json?.data)
-        ) {
-          /*
-           * Store API returns the top-level
-           * categories here.
-           *
-           * Do NOT use:
-           *
-           * !cat.children ||
-           * cat.children.length >= 0
-           *
-           * because that condition is always true.
-           */
-
-          setCategories(
-            json.data.slice(0, 4),
-          );
+        if (!cancelled && Array.isArray(json?.data)) {
+          setCategories(json.data.slice(0, 4));
         } else if (!cancelled) {
           setCategories([]);
         }
       } catch (error) {
-        console.error(
-          "Category loading error:",
-          error,
-        );
+        console.error("Category loading error:", error);
 
         if (!cancelled) {
           setCategories([]);
@@ -165,27 +116,16 @@ export default function CategorySection() {
   /* PRE-HYDRATION                                                            */
   /* ------------------------------------------------------------------------ */
 
-  /*
-   * Important:
-   *
-   * Server renders nothing here.
-   * Client also renders nothing until mounted.
-   *
-   * This prevents server/client HTML mismatch.
-   */
-
   if (!mounted) {
     return (
       <section className="mx-auto max-w-7xl px-6 py-16 lg:px-10">
         <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-          {[1, 2, 3, 4].map(
-            (item) => (
-              <div
-                key={item}
-                className="h-72 animate-pulse rounded-2xl bg-[#f5f0e8]"
-              />
-            ),
-          )}
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="h-72 animate-pulse rounded-2xl bg-[#f5f0e8]"
+            />
+          ))}
         </div>
       </section>
     );
@@ -209,14 +149,12 @@ export default function CategorySection() {
         </div>
 
         <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-4">
-          {[1, 2, 3, 4].map(
-            (item) => (
-              <div
-                key={item}
-                className="h-72 animate-pulse rounded-2xl bg-[#f5f0e8]"
-              />
-            ),
-          )}
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="h-72 animate-pulse rounded-2xl bg-[#f5f0e8]"
+            />
+          ))}
         </div>
       </section>
     );
@@ -228,21 +166,21 @@ export default function CategorySection() {
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-16 lg:px-10">
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
 
       <div className="flex flex-col items-center justify-between gap-4 text-center md:flex-row md:text-left">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-[#C9A227]">
-            Explore Collection
+            Explore Our Collection
           </p>
 
           <h2 className="mt-3 text-3xl font-semibold text-gray-900 md:text-4xl">
-            Shop By Categories
+            Shop Bangles Online by Category
           </h2>
 
-          <p className="mt-2 text-gray-500">
-            Find jewellery designed for every
-            beautiful moment.
+          <p className="mt-2 max-w-2xl text-gray-500">
+            Explore bangles online shopping across beautiful styles, designs and
+            collections for every occasion.
           </p>
         </div>
 
@@ -250,104 +188,84 @@ export default function CategorySection() {
           href="/shop"
           className="flex items-center gap-2 text-sm font-medium text-[#C9A227]"
         >
-          View All
+          View All Bangles
           <ArrowRight size={16} />
         </Link>
       </div>
 
-      {/* CATEGORY CARDS */}
+      {/* ================= CATEGORY CARDS ================= */}
 
       {categories.length > 0 ? (
         <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-4">
-          {categories.map(
-            (category) => {
-              const imageUrl =
-                getCategoryImage(
-                  category,
-                );
+          {categories.map((category) => {
+            const imageUrl = getCategoryImage(category);
 
-              return (
-                <Link
-                  key={category.id}
-                  href={`/shop/${category.slug}`}
-                  className="group overflow-hidden rounded-2xl border border-[#eee5d8] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-                >
-                  {/* IMAGE */}
+            return (
+              <Link
+                key={category.id}
+                href={`/shop/${category.slug}`}
+                className="group overflow-hidden rounded-2xl border border-[#eee5d8] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+              >
+                {/* ================= IMAGE ================= */}
 
-                  <div className="relative h-52 overflow-hidden md:h-64">
-                    {imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt={category.name}
-                        className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
-                        loading="lazy"
-                        onError={(
-                          event,
-                        ) => {
-                          event.currentTarget.style.display =
-                            "none";
+                <div className="relative h-52 overflow-hidden md:h-64">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={`${category.name} collection`}
+                      className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
+                      loading="lazy"
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
 
-                          const fallback =
-                            event.currentTarget
-                              .parentElement
-                              ?.querySelector(
-                                "[data-category-fallback]",
-                              ) as
-                              | HTMLElement
-                              | null;
+                        const fallback =
+                          event.currentTarget.parentElement?.querySelector(
+                            "[data-category-fallback]",
+                          ) as HTMLElement | null;
 
-                          if (fallback) {
-                            fallback.style.display =
-                              "flex";
-                          }
-                        }}
-                      />
-                    ) : null}
+                        if (fallback) {
+                          fallback.style.display = "flex";
+                        }
+                      }}
+                    />
+                  ) : null}
 
-                    {/* IMAGE FALLBACK */}
+                  {/* ================= IMAGE FALLBACK ================= */}
 
-                    <div
-                      data-category-fallback
-                      className={`absolute inset-0 items-center justify-center bg-[#f5f0e8] ${
-                        imageUrl
-                          ? "hidden"
-                          : "flex"
-                      }`}
-                    >
-                      <div className="text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white">
-                          <ImageIcon
-                            size={22}
-                            className="text-[#C9A227]"
-                          />
-                        </div>
-
-                        <p className="mt-2 text-xs text-gray-400">
-                          {category.name}
-                        </p>
+                  <div
+                    data-category-fallback
+                    className={`absolute inset-0 items-center justify-center bg-[#f5f0e8] ${
+                      imageUrl ? "hidden" : "flex"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white">
+                        <ImageIcon size={22} className="text-[#C9A227]" />
                       </div>
+
+                      <p className="mt-2 text-xs text-gray-400">
+                        {category.name}
+                      </p>
                     </div>
-
-                    {/* IMAGE OVERLAY */}
-
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   </div>
 
-                  {/* CATEGORY TEXT */}
+                  {/* ================= IMAGE OVERLAY ================= */}
 
-                  <div className="p-4">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {category.name}
-                    </h3>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                </div>
 
-                    <p className="mt-1 text-sm text-gray-500">
-                      Explore Collection
-                    </p>
-                  </div>
-                </Link>
-              );
-            },
-          )}
+                {/* ================= CATEGORY TEXT ================= */}
+
+                <div className="p-4">
+                  <h3 className="text-base font-semibold text-gray-900">
+                    {category.name}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-500">Shop Collection</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       ) : (
         <div className="mt-10 rounded-2xl border border-dashed border-[#e5ddcf] bg-[#faf8f4] px-6 py-16 text-center">

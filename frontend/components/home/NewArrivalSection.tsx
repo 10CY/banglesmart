@@ -61,11 +61,12 @@ export default function NewArrivalSection() {
             </div>
 
             <h2 className="mt-3 font-[family-name:var(--font-playfair)] text-4xl text-[#191919]">
-              New Arrivals
+              New Bangles
             </h2>
 
             <p className="mt-2 text-sm text-[#777]">
-              Discover our newest jewellery designs.
+              Discover our latest bangles, featuring fresh designs made for
+              every style and occasion.
             </p>
           </div>
 
@@ -73,7 +74,7 @@ export default function NewArrivalSection() {
             href="/shop?new_arrival=1"
             className="text-sm font-semibold text-[#8f0828]"
           >
-            View all new arrivals →
+            Shop New Bangles →
           </Link>
         </div>
 

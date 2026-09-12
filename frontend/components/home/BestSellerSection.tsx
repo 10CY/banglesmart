@@ -61,11 +61,11 @@ export default function BestSellerSection() {
             </div>
 
             <h2 className="mt-3 font-[family-name:var(--font-playfair)] text-4xl text-[#191919]">
-              Best Sellers
+              Best Bangles
             </h2>
 
             <p className="mt-2 text-sm text-[#777]">
-              Our most loved jewellery pieces.
+               Discover our most loved and customer favourite bangles.
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export default function BestSellerSection() {
             href="/shop?best_seller=1"
             className="text-sm font-semibold text-[#8f0828]"
           >
-            View all best sellers →
+            Shop Best Bangles →
           </Link>
         </div>
 
