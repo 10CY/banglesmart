@@ -2,6 +2,7 @@ import { query } from "../../db.js";
 import { ok, fail } from "../../utils/http.js";
 import { uniqueSlug } from "../../utils/slug.js";
 import { imageUrl } from "../../utils/serialize.js";
+import { getUploadedFilePath } from "../../middleware/upload.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -964,7 +965,7 @@ export async function images(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const imagePath = `products/${req.file.filename}`;
+    const imagePath = getUploadedFilePath(req.file, "products");
 
     /*
     |--------------------------------------------------------------------------

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -65,26 +66,9 @@ type ApiResponse = {
 /* -------------------------------------------------------------------------- */
 
 function getImageUrl(category: Category): string {
-  if (category.image_url) {
-    return category.image_url;
-  }
-
-  if (!category.image) {
-    return "";
-  }
-
-  if (
-    category.image.startsWith("http://") ||
-    category.image.startsWith("https://")
-  ) {
-    return category.image;
-  }
-
-  const backendUrl =
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://127.0.0.1:8000";
-
-  return `${backendUrl}/storage/${category.image.replace(/^\/+/, "")}`;
+  const raw = category.image_url || category.image;
+  if (!raw) return "";
+  return getProductImageUrl(raw) || "";
 }
 
 /* -------------------------------------------------------------------------- */

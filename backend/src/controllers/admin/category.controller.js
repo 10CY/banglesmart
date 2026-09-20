@@ -2,6 +2,7 @@ import { query } from "../../db.js";
 import { ok, fail } from "../../utils/http.js";
 import { imageUrl } from "../../utils/serialize.js";
 import { uniqueSlug } from "../../utils/slug.js";
+import { getUploadedFilePath } from "../../middleware/upload.js";
 
 function normalizeCategory(category) {
   if (!category) return null;
@@ -272,8 +273,7 @@ export async function store(req, res) {
     let imagePath = null;
 
     if (req.file) {
-      imagePath =
-        `categories/${req.file.filename}`;
+      imagePath = getUploadedFilePath(req.file, "categories");
     }
 
     /*
@@ -522,8 +522,7 @@ export async function update(req, res) {
       category.image || null;
 
     if (req.file) {
-      imagePath =
-        `categories/${req.file.filename}`;
+      imagePath = getUploadedFilePath(req.file, "categories");
     }
 
     /*

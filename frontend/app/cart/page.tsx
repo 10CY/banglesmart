@@ -32,6 +32,7 @@ import {
 import {
   BACKEND_URL,
 } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -429,24 +430,9 @@ export default function CartPage() {
   /* Image URL                                                                */
   /* ------------------------------------------------------------------------ */
 
-  function getImageUrl(
-    image?: string | null
-  ) {
-    if (!image) {
-      return null;
-    }
-
-    if (
-      image.startsWith("http://") ||
-      image.startsWith("https://")
-    ) {
-      return image;
-    }
-
-    return `${BACKEND_URL}/storage/${image.replace(
-      /^\/+/,
-      ""
-    )}`;
+  function getImageUrl(image?: string | null) {
+    if (!image) return null;
+    return getProductImageUrl(image);
   }
 
   /* ------------------------------------------------------------------------ */

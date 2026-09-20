@@ -28,6 +28,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 
 import { BACKEND_URL } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 import { customerApiFetch } from "@/lib/customerApi";
 
@@ -1119,7 +1120,7 @@ export default function CustomerOrderDetailPage() {
                       <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#eadfda] bg-[#faf7f5] sm:h-28 sm:w-28">
                         {item.image ? (
                           <img
-                            src={`${BACKEND_URL}/storage/${item.image}`}
+                            src={getProductImageUrl(item.image) || "/logo.png"}
                             alt={item.product_name}
                             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                           />

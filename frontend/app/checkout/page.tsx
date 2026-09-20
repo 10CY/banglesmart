@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { BACKEND_URL } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 import { customerApiFetch } from "@/lib/customerApi";
 /* ========================================================================== TYPES ========================================================================== */ type ProductImage =
   { id: number; image: string };
@@ -1085,7 +1086,7 @@ const EMPTY_ADDRESS: AddressForm = {
                 {" "}
                 {image ? (
                   <img
-                    src={`${BACKEND_URL}/storage/${image}`}
+                    src={getProductImageUrl(image) || "/logo.png"}
                     alt={product?.name || "Product"}
                     className="h-full w-full object-cover"
                   />

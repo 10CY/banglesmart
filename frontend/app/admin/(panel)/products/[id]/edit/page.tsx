@@ -28,6 +28,7 @@ import {
   apiFetch,
   BACKEND_URL,
 } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -96,22 +97,9 @@ function toBoolean(value: unknown): boolean {
 }
 
 function getImageUrl(image: ProductImage) {
-  if (image.url) {
-    return image.url;
-  }
-
-  if (!image.image) {
-    return "";
-  }
-
-  if (
-    image.image.startsWith("http://") ||
-    image.image.startsWith("https://")
-  ) {
-    return image.image;
-  }
-
-  return `${BACKEND_URL}/storage/${image.image}`;
+  const raw = image.url || image.image;
+  if (!raw) return "";
+  return getProductImageUrl(raw) || "";
 }
 
 /* -------------------------------------------------------------------------- */

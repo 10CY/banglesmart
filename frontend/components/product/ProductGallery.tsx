@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { BACKEND_URL } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 import type { Product } from "./product.types";
 
@@ -82,7 +83,7 @@ export default function ProductGallery({
             {current ? (
 
               <img
-                src={`${BACKEND_URL}/storage/${current.image}`}
+                src={getProductImageUrl(current.image) || "/logo.png"}
                 alt={
                   current.alt_text ||
                   product.name
@@ -233,7 +234,7 @@ export default function ProductGallery({
                 >
 
                   <img
-                    src={`${BACKEND_URL}/storage/${image.image}`}
+                    src={getProductImageUrl(image.image) || "/logo.png"}
                     alt={
                       image.alt_text ||
                       product.name
@@ -274,7 +275,7 @@ export default function ProductGallery({
         >
 
           <img
-            src={`${BACKEND_URL}/storage/${current.image}`}
+            src={getProductImageUrl(current.image) || "/logo.png"}
             alt={product.name}
             className="
               max-h-[90vh]

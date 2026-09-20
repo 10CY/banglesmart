@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { apiFetch, BACKEND_URL } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -747,7 +748,7 @@ export default function InventoryPage() {
                             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                               {inventory.image ? (
                                 <img
-                                  src={`${BACKEND_URL}/storage/${inventory.image}`}
+                                  src={getProductImageUrl(inventory.image) || "/logo.png"}
                                   alt={
                                     inventory.product_name ||
                                     "Product"

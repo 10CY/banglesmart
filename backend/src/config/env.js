@@ -2,11 +2,8 @@ import "dotenv/config";
 
 export const env = {
   PORT: Number(process.env.PORT || 8000),
-
   DB_HOST: process.env.DB_HOST || "127.0.0.1",
-
   DB_PORT: Number(process.env.DB_PORT || 3306),
-
   DB_DATABASE: process.env.DB_DATABASE || "banglesmart",
 
   DB_USERNAME: process.env.DB_USERNAME || "root",

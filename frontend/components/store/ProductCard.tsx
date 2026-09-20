@@ -10,7 +10,8 @@ import {
   Check,
 } from "lucide-react";
 
-import { BACKEND_URL } from "@/lib/api";
+
+import { getProductImageUrl } from "@/lib/image";
 import { customerApiFetch } from "@/lib/customerApi";
 
 export type StoreProductCardData = {
@@ -20,37 +21,42 @@ export type StoreProductCardData = {
   selling_price: number | string;
   mrp?: number | string | null;
   image?: string | null;
+  image_url?: string | null;
+  images?: Array<{ id: number; image: string; image_url?: string; is_primary?: boolean }>;
   primary_image?: {
     image?: string | null;
   } | null;
-  review_average?: number;
-  review_count?: number;
+  in_stock?: boolean;
   featured?: boolean;
   best_seller?: boolean;
   new_arrival?: boolean;
+  rating?: number;
+  reviews_count?: number;
+  review_average?: number;
+  review_count?: number;
   status?: string;
 };
 
 /* -----------------------------------------
-   IMAGE URL
+   IMAGE FORMATTER
 ----------------------------------------- */
 
-function resolveImage(product: StoreProductCardData) {
-  const raw = product.image || product.primary_image?.image;
-
+function formatImageUrl(raw?: string | null): string {
   if (!raw) {
     return "/logo.png";
   }
 
-  if (/^https?:\/\//i.test(raw)) {
-    return raw;
-  }
+  return getProductImageUrl(raw) || "/logo.png";
+}
 
-  if (raw.startsWith("/storage/")) {
-    return `${BACKEND_URL}${raw}`;
-  }
+function resolveImage(product: StoreProductCardData) {
+  const raw =
+    product.image_url ||
+    product.image ||
+    product.images?.[0]?.image ||
+    product.primary_image?.image;
 
-  return `${BACKEND_URL}/storage/${raw.replace(/^\//, "")}`;
+  return formatImageUrl(raw);
 }
 
 /* -----------------------------------------

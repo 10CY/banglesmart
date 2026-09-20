@@ -29,6 +29,7 @@ import {
   apiFetch,
   BACKEND_URL,
 } from "@/lib/api";
+import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -749,7 +750,7 @@ export default function AdminOrderDetailPage() {
                     {item.image ? (
 
                       <img
-                        src={`${BACKEND_URL}/storage/${item.image}`}
+                        src={getProductImageUrl(item.image) || "/logo.png"}
                         alt={
                           item.product_name
                         }
