@@ -33,15 +33,24 @@ function securityHeaders(req, res, next) {
 
 app.use(securityHeaders);
 app.use("/api", apiRateLimit);
+
 app.use(
   cors({
-    origin: (o, cb) => {
-      if (!o || env.CORS_ORIGINS.includes(o)) cb(null, true);
-      else cb(new Error("CORS blocked"));
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (env.CORS_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      } else {
+        // Return false instead of throwing an Error
+        return callback(null, false);
+      }
     },
     credentials: true,
-  }),
+  })
 );
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/storage", express.static(path.resolve(env.STORAGE_DIR)));
