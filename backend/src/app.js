@@ -34,22 +34,25 @@ function securityHeaders(req, res, next) {
 app.use(securityHeaders);
 app.use("/api", apiRateLimit);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, server-to-server)
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow server-to-server or requests without Origin header (e.g., Postman, mobile apps)
+    if (!origin) return callback(null, true);
 
-      if (env.CORS_ORIGINS.includes(origin)) {
-        return callback(null, true);
-      } else {
-        // Return false instead of throwing an Error
-        return callback(null, false);
-      }
-    },
-    credentials: true,
-  })
-);
+    if (env.CORS_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    } else {
+      // Return false rather than throwing new Error()
+      return callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('/(.*)', cors(corsOptions));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
