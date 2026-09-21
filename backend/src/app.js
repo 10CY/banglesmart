@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
+import helmet from 'helmet';
+
 import path from "path";
+
 import { env } from "./config/env.js";
 import { ok } from "./utils/http.js";
 import admin from "./routes/admin.routes.js";
@@ -24,15 +27,16 @@ function apiRateLimit(req, res, next) {
   return next();
 }
 
-function securityHeaders(req, res, next) {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+app.use(
+  helmet({
+    xFrameOptions: { action: 'deny' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
-}
-
-app.use(securityHeaders);
+});
 app.use("/api", apiRateLimit);
 
 const corsOptions = {
