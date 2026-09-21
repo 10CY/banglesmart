@@ -7,6 +7,7 @@ import admin from "./routes/admin.routes.js";
 import customer from "./routes/customer.routes.js";
 import store from "./routes/store.routes.js";
 const app = express();
+const isProduction = env.NODE_ENV === 'production';
 const rateBuckets = new Map();
 function apiRateLimit(req, res, next) {
   const now = Date.now();
@@ -49,6 +50,7 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: isProduction ? 86400 : 0,
 };
 
 app.use(cors(corsOptions));
