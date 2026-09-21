@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  CreditCard,
   LockKeyhole,
   MapPin,
   Package,
@@ -15,39 +16,78 @@ import {
   X,
 } from "lucide-react";
 import { BACKEND_URL } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 import { customerApiFetch } from "@/lib/customerApi";
-/* ========================================================================== TYPES ========================================================================== */ type ProductImage =
-  { id: number; image: string };
+import { storeApiFetch } from "@/lib/storeApi";
+import Script from "next/script";
+
+/* ========================================================================== TYPES ========================================================================== */
+type ProductImage = {
+  id: number;
+  image: string;
+  url?: string | null;
+  color_id?: number | null;
+  is_primary?: boolean | number;
+  sort_order?: number;
+};
+
 type Product = {
   id: number;
   name: string;
   slug: string;
   primary_image: ProductImage | null;
 };
-type Size = { id: number; name: string; display_name: string | null };
-type Color = { id: number; name: string; display_name: string | null };
+
+type Size = {
+  id: number;
+  name: string;
+  display_name: string | null;
+};
+
+type Color = {
+  id: number;
+  name: string;
+  display_name: string | null;
+  hex_code?: string | null;
+};
+
 type Variant = {
   id: number;
+  product_id?: number;
+  size_id?: number | null;
+  color_id?: number | null;
   sku: string;
-  mrp: string;
-  selling_price: string;
+  mrp: string | number;
+  selling_price: string | number;
+  status?: string;
+  available_quantity?: number;
   product: Product | null;
   size: Size | null;
   color: Color | null;
 };
+
+type CartDesignOption = {
+  id: number;
+  label: string;
+  status?: string;
+};
+
 type CartItem = {
   id: number;
+  product_variant_id?: number;
+  design_option_id?: number | null;
   quantity: number;
   line_total: string | number;
+  design_option?: CartDesignOption | null;
   variant: Variant | null;
 };
+
 type CartData = {
   id: number;
   items: CartItem[];
   item_count: number;
   subtotal: string | number;
 };
+
 type Address = {
   id: number;
   full_name: string;
@@ -62,6 +102,7 @@ type Address = {
   type: string;
   is_default: boolean;
 };
+
 type AppliedCoupon = {
   id: number;
   code: string;
@@ -70,6 +111,7 @@ type AppliedCoupon = {
   minimum_order_amount?: string | null;
   maximum_discount_amount?: string | null;
 };
+
 type ShippingQuote = {
   subtotal: string;
   shipping_amount: string;
@@ -78,6 +120,7 @@ type ShippingQuote = {
   shipping_enabled: boolean;
   free_shipping: boolean;
 };
+
 type AddressForm = {
   full_name: string;
   phone: string;
@@ -89,6 +132,118 @@ type AddressForm = {
   postal_code: string;
   country: string;
 };
+
+type StoreInventory = {
+  quantity?: number;
+  reserved_quantity?: number;
+  available_quantity?: number;
+};
+
+type StoreVariant = {
+  id: number;
+  size_id?: number | null;
+  color_id?: number | null;
+  sku: string;
+  mrp: string | number;
+  selling_price: string | number;
+  status: string;
+  size: Size | null;
+  color: Color | null;
+  inventory?: StoreInventory | null;
+};
+
+type StoreDesignOption = {
+  id: number;
+  product_id?: number;
+  label: string | null;
+  status: string;
+  sort_order?: number;
+  images?: ProductImage[];
+};
+
+type StoreProduct = {
+  id: number;
+  name: string;
+  slug: string;
+  primary_image?: ProductImage | null;
+  images?: ProductImage[];
+  variants?: StoreVariant[];
+  design_options?: StoreDesignOption[];
+};
+
+type BuyNowPayload = {
+  product_id: number;
+  product_variant_id: number;
+  design_option_id: number | null;
+  quantity: number;
+  product_name?: string;
+  product_slug: string;
+  size_id?: number | null;
+  color_id?: number | null;
+  design_label?: string | null;
+  created_at?: number;
+};
+
+type PaymentMethod = "cod" | "razorpay";
+
+type RazorpaySuccessResponse = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayFailedResponse = {
+  error?: {
+    code?: string;
+    description?: string;
+    source?: string;
+    step?: string;
+    reason?: string;
+    metadata?: {
+      order_id?: string;
+      payment_id?: string;
+    };
+  };
+};
+
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description?: string;
+  order_id: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  notes?: Record<string, string>;
+  theme?: {
+    color?: string;
+  };
+  handler: (response: RazorpaySuccessResponse) => void | Promise<void>;
+  modal?: {
+    ondismiss?: () => void;
+    escape?: boolean;
+    confirm_close?: boolean;
+  };
+};
+
+type RazorpayInstance = {
+  open: () => void;
+  on: (
+    event: "payment.failed",
+    callback: (response: RazorpayFailedResponse) => void,
+  ) => void;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
+
 const EMPTY_ADDRESS: AddressForm = {
   full_name: "",
   phone: "",
@@ -100,9 +255,130 @@ const EMPTY_ADDRESS: AddressForm = {
   postal_code: "",
   country: "India",
 };
+
+/* ========================================================================== BUY NOW HELPERS ========================================================================== */
+function sortProductImages(images: ProductImage[]) {
+  return [...images].sort((a, b) => {
+    const primaryDifference =
+      Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
+
+    if (primaryDifference !== 0) {
+      return primaryDifference;
+    }
+
+    const sortDifference =
+      Number(a.sort_order || 0) - Number(b.sort_order || 0);
+
+    if (sortDifference !== 0) {
+      return sortDifference;
+    }
+
+    return Number(a.id || 0) - Number(b.id || 0);
+  });
+}
+
+function resolveBuyNowImage(
+  product: StoreProduct,
+  colorId: number | null,
+  designOptionId: number | null,
+): ProductImage | null {
+  const productImages = Array.isArray(product.images) ? product.images : [];
+
+  const design = designOptionId
+    ? (product.design_options || []).find(
+        (option) => Number(option.id) === Number(designOptionId),
+      ) || null
+    : null;
+
+  const designImages = Array.isArray(design?.images) ? design!.images! : [];
+
+  const byColor = (images: ProductImage[]) => {
+    if (colorId === null) {
+      return [];
+    }
+
+    return images.filter(
+      (image) =>
+        image.color_id !== null &&
+        image.color_id !== undefined &&
+        Number(image.color_id) === Number(colorId),
+    );
+  };
+
+  const general = (images: ProductImage[]) =>
+    images.filter(
+      (image) => image.color_id === null || image.color_id === undefined,
+    );
+
+  const designColorImages = sortProductImages(byColor(designImages));
+  if (designColorImages.length > 0) {
+    return designColorImages[0];
+  }
+
+  const productColorImages = sortProductImages(byColor(productImages));
+  if (productColorImages.length > 0) {
+    return productColorImages[0];
+  }
+
+  const designGeneralImages = sortProductImages(general(designImages));
+  if (designGeneralImages.length > 0) {
+    return designGeneralImages[0];
+  }
+
+  const productGeneralImages = sortProductImages(general(productImages));
+  if (productGeneralImages.length > 0) {
+    return productGeneralImages[0];
+  }
+
+  const anyDesignImage = sortProductImages(designImages)[0];
+  if (anyDesignImage) {
+    return anyDesignImage;
+  }
+
+  if (product.primary_image) {
+    return product.primary_image;
+  }
+
+  return sortProductImages(productImages)[0] || null;
+}
+
+function getAvailableQuantity(variant: StoreVariant) {
+  if (variant.inventory?.available_quantity !== undefined) {
+    return Math.max(0, Number(variant.inventory.available_quantity || 0));
+  }
+
+  return Math.max(
+    0,
+    Number(variant.inventory?.quantity || 0) -
+      Number(variant.inventory?.reserved_quantity || 0),
+  );
+}
+
+function getProductImageSrc(image?: string | null) {
+  if (!image) {
+    return "";
+  }
+
+  if (
+    image.startsWith("http://") ||
+    image.startsWith("https://") ||
+    image.startsWith("//")
+  ) {
+    return image;
+  }
+
+  const cleanImage = image.replace(/^\/+/, "").replace(/^storage\//, "");
+
+  return `${BACKEND_URL}/storage/${cleanImage}`;
+}
+
 /* ========================================================================== PAGE ========================================================================== */ export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartData | null>(null);
+  const [checkoutMode, setCheckoutMode] = useState<"cart" | "buy-now">("cart");
+  const [buyNowPayload, setBuyNowPayload] = useState<BuyNowPayload | null>(
+    null,
+  );
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [shippingAddressId, setShippingAddressId] = useState<number | null>(
     null,
@@ -127,6 +403,7 @@ const EMPTY_ADDRESS: AddressForm = {
   const [customerNote, setCustomerNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("razorpay");
   const [error, setError] = useState("");
   /* ========================================================================== HELPERS ========================================================================== */ const formatPrice =
     useCallback((value: string | number) => {
@@ -141,99 +418,360 @@ const EMPTY_ADDRESS: AddressForm = {
     localStorage.removeItem("customer_user");
     router.replace("/login");
   }, [router]);
-  /* ========================================================================== LOAD CHECKOUT ========================================================================== */ const loadCheckout =
-    useCallback(async () => {
-      const token = localStorage.getItem("customer_token");
-      if (!token) {
+  /* ========================================================================== LOAD CHECKOUT ========================================================================== */
+  const loadCheckout = useCallback(async () => {
+    const token = localStorage.getItem("customer_token");
+
+    if (!token) {
+      handleUnauthorized();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+      setCouponInput("");
+      setCouponMessage("");
+      setCouponError("");
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const isBuyNowRequest = searchParams.get("mode") === "buy-now";
+
+      setCheckoutMode(isBuyNowRequest ? "buy-now" : "cart");
+
+      /* ---------------------------------------------------------------------- */
+      /* Load saved addresses                                                   */
+      /* ---------------------------------------------------------------------- */
+
+      const addressResponse = await customerApiFetch("/customer/addresses");
+      const addressJson = await addressResponse.json();
+
+      if (addressResponse.status === 401) {
         handleUnauthorized();
         return;
       }
-      try {
-        setLoading(true);
-        setError("");
-        const [cartResponse, addressResponse] = await Promise.all([
-          customerApiFetch("/customer/cart"),
-          customerApiFetch("/customer/addresses"),
-        ]);
+
+      if (!addressResponse.ok) {
+        setError(
+          addressJson?.message || "Unable to load your saved addresses.",
+        );
+        return;
+      }
+
+      const addressList: Address[] = Array.isArray(addressJson.data)
+        ? addressJson.data
+        : Array.isArray(addressJson.data?.data)
+          ? addressJson.data.data
+          : [];
+
+      setAddresses(addressList);
+
+      const shipping =
+        addressList.find(
+          (address) =>
+            address.is_default &&
+            (address.type === "shipping" || address.type === "both"),
+        ) ||
+        addressList.find(
+          (address) => address.type === "shipping" || address.type === "both",
+        );
+
+      const billing =
+        addressList.find(
+          (address) =>
+            address.is_default &&
+            (address.type === "billing" || address.type === "both"),
+        ) ||
+        addressList.find(
+          (address) => address.type === "billing" || address.type === "both",
+        );
+
+      setShippingAddressId(shipping?.id ?? null);
+      setBillingAddressId(billing?.id ?? null);
+
+      let nextCart: CartData;
+
+      /* ---------------------------------------------------------------------- */
+      /* BUY NOW                                                               */
+      /* ---------------------------------------------------------------------- */
+
+      if (isBuyNowRequest) {
+        const rawBuyNow = sessionStorage.getItem("banglesmart_buy_now");
+
+        if (!rawBuyNow) {
+          setCart(null);
+          setBuyNowPayload(null);
+          setError(
+            "Your Buy Now selection has expired. Please return to the product and try again.",
+          );
+          return;
+        }
+
+        let parsedBuyNow: BuyNowPayload;
+
+        try {
+          parsedBuyNow = JSON.parse(rawBuyNow) as BuyNowPayload;
+        } catch {
+          sessionStorage.removeItem("banglesmart_buy_now");
+          setCart(null);
+          setBuyNowPayload(null);
+          setError("Invalid Buy Now checkout information.");
+          return;
+        }
+
+        if (
+          !parsedBuyNow.product_slug ||
+          !Number.isInteger(Number(parsedBuyNow.product_variant_id)) ||
+          Number(parsedBuyNow.product_variant_id) <= 0 ||
+          !Number.isInteger(Number(parsedBuyNow.quantity)) ||
+          Number(parsedBuyNow.quantity) <= 0
+        ) {
+          sessionStorage.removeItem("banglesmart_buy_now");
+          setCart(null);
+          setBuyNowPayload(null);
+          setError("Buy Now selection is incomplete.");
+          return;
+        }
+
+        /* Buy Now is intentionally temporary. */
+        if (
+          parsedBuyNow.created_at &&
+          Date.now() - Number(parsedBuyNow.created_at) > 2 * 60 * 60 * 1000
+        ) {
+          sessionStorage.removeItem("banglesmart_buy_now");
+          setCart(null);
+          setBuyNowPayload(null);
+          setError(
+            "Your Buy Now selection has expired. Please select the product again.",
+          );
+          return;
+        }
+
+        const productResponse = await storeApiFetch(
+          `/store/products/${encodeURIComponent(parsedBuyNow.product_slug)}`,
+        );
+
+        const productJson = await productResponse.json();
+
+        if (!productResponse.ok) {
+          setCart(null);
+          setBuyNowPayload(parsedBuyNow);
+          setError(productJson?.message || "Unable to load selected product.");
+          return;
+        }
+
+        const product: StoreProduct | null = productJson?.data || null;
+
+        if (!product) {
+          setCart(null);
+          setBuyNowPayload(parsedBuyNow);
+          setError("Selected product could not be found.");
+          return;
+        }
+
+        if (
+          parsedBuyNow.product_id &&
+          Number(parsedBuyNow.product_id) !== Number(product.id)
+        ) {
+          setCart(null);
+          setBuyNowPayload(parsedBuyNow);
+          setError("Selected product information is no longer valid.");
+          return;
+        }
+
+        const selectedVariant = (product.variants || []).find(
+          (variant) =>
+            Number(variant.id) === Number(parsedBuyNow.product_variant_id),
+        );
+
+        if (!selectedVariant || selectedVariant.status !== "active") {
+          setCart(null);
+          setBuyNowPayload(parsedBuyNow);
+          setError(
+            "Selected size and color combination is no longer available.",
+          );
+          return;
+        }
+
+        const quantity = Number(parsedBuyNow.quantity);
+        const available = getAvailableQuantity(selectedVariant);
+
+        if (available < quantity) {
+          setCart(null);
+          setBuyNowPayload(parsedBuyNow);
+          setError(
+            available > 0
+              ? `Only ${available} item(s) are currently available.`
+              : "Selected product is currently out of stock.",
+          );
+          return;
+        }
+
+        const selectedDesign = parsedBuyNow.design_option_id
+          ? (product.design_options || []).find(
+              (design) =>
+                Number(design.id) === Number(parsedBuyNow.design_option_id),
+            ) || null
+          : null;
+
+        if (
+          parsedBuyNow.design_option_id &&
+          (!selectedDesign || selectedDesign.status !== "active")
+        ) {
+          setCart(null);
+          setBuyNowPayload(parsedBuyNow);
+          setError("Selected design is no longer available.");
+          return;
+        }
+
+        const selectedColorId =
+          selectedVariant.color_id !== null &&
+          selectedVariant.color_id !== undefined
+            ? Number(selectedVariant.color_id)
+            : null;
+
+        const selectedImage = resolveBuyNowImage(
+          product,
+          selectedColorId,
+          parsedBuyNow.design_option_id
+            ? Number(parsedBuyNow.design_option_id)
+            : null,
+        );
+
+        const sellingPrice = Number(selectedVariant.selling_price || 0);
+        const lineTotal = sellingPrice * quantity;
+
+        nextCart = {
+          id: 0,
+          item_count: quantity,
+          subtotal: lineTotal,
+          items: [
+            {
+              id: -Number(selectedVariant.id),
+              product_variant_id: Number(selectedVariant.id),
+              design_option_id: parsedBuyNow.design_option_id
+                ? Number(parsedBuyNow.design_option_id)
+                : null,
+              quantity,
+              line_total: lineTotal,
+              design_option: selectedDesign
+                ? {
+                    id: Number(selectedDesign.id),
+                    label:
+                      selectedDesign.label ||
+                      parsedBuyNow.design_label ||
+                      `Design ${selectedDesign.id}`,
+                    status: selectedDesign.status,
+                  }
+                : null,
+              variant: {
+                id: Number(selectedVariant.id),
+                product_id: Number(product.id),
+                size_id:
+                  selectedVariant.size_id !== null &&
+                  selectedVariant.size_id !== undefined
+                    ? Number(selectedVariant.size_id)
+                    : null,
+                color_id: selectedColorId,
+                sku: selectedVariant.sku,
+                mrp: selectedVariant.mrp,
+                selling_price: selectedVariant.selling_price,
+                status: selectedVariant.status,
+                available_quantity: available,
+                product: {
+                  id: Number(product.id),
+                  name: product.name,
+                  slug: product.slug,
+                  primary_image: selectedImage
+                    ? {
+                        ...selectedImage,
+                        image: selectedImage.image,
+                      }
+                    : null,
+                },
+                size: selectedVariant.size,
+                color: selectedVariant.color,
+              },
+            },
+          ],
+        };
+
+        setBuyNowPayload(parsedBuyNow);
+      } else {
+        /* -------------------------------------------------------------------- */
+        /* NORMAL CART CHECKOUT                                                 */
+        /* -------------------------------------------------------------------- */
+
+        const cartResponse = await customerApiFetch("/customer/cart");
         const cartJson = await cartResponse.json();
-        const addressJson = await addressResponse.json();
-        if (cartResponse.status === 401 || addressResponse.status === 401) {
+
+        if (cartResponse.status === 401) {
           handleUnauthorized();
           return;
         }
+
         if (!cartResponse.ok) {
           setError(cartJson?.message || "Unable to load your cart.");
           return;
         }
-        if (!addressResponse.ok) {
-          setError(
-            addressJson?.message || "Unable to load your saved addresses.",
-          );
-          return;
-        }
-        const nextCart: CartData = cartJson.data;
-        setCart(nextCart);
-        const addressList: Address[] = Array.isArray(addressJson.data)
-          ? addressJson.data
-          : Array.isArray(addressJson.data?.data)
-            ? addressJson.data.data
-            : [];
-        setAddresses(addressList);
-        const subtotal = Number(nextCart?.subtotal || 0);
-        const shippingResponse = await customerApiFetch(
-          `/customer/shipping/quote?amount=${encodeURIComponent(String(subtotal))}`,
-        );
-        const shippingJson = await shippingResponse.json();
-        if (
-          shippingResponse.status === 401 ||
-          shippingResponse.status === 403
-        ) {
-          handleUnauthorized();
-          return;
-        }
-        if (!shippingResponse.ok) {
-          setError(shippingJson?.message || "Unable to calculate shipping.");
-          return;
-        }
-        setShippingQuote(shippingJson.data);
-        const shipping =
-          addressList.find(
-            (address) =>
-              address.is_default &&
-              (address.type === "shipping" || address.type === "both"),
-          ) ||
-          addressList.find(
-            (address) => address.type === "shipping" || address.type === "both",
-          );
-        const billing =
-          addressList.find(
-            (address) =>
-              address.is_default &&
-              (address.type === "billing" || address.type === "both"),
-          ) ||
-          addressList.find(
-            (address) => address.type === "billing" || address.type === "both",
-          );
-        setShippingAddressId(shipping?.id ?? null);
-        setBillingAddressId(billing?.id ?? null);
-      } catch (err) {
-        console.error("Checkout load error:", err);
-        setError("Unable to connect to the server. Please try again.");
-      } finally {
-        setLoading(false);
+
+        nextCart = cartJson.data as CartData;
+        setBuyNowPayload(null);
       }
-    }, [handleUnauthorized]);
+
+      setCart(nextCart);
+
+      /* ---------------------------------------------------------------------- */
+      /* Shipping quote                                                        */
+      /* ---------------------------------------------------------------------- */
+
+      const nextSubtotal = Number(nextCart?.subtotal || 0);
+
+      const shippingResponse = await customerApiFetch(
+        `/customer/shipping/quote?amount=${encodeURIComponent(String(nextSubtotal))}`,
+      );
+
+      const shippingJson = await shippingResponse.json();
+
+      if (shippingResponse.status === 401 || shippingResponse.status === 403) {
+        handleUnauthorized();
+        return;
+      }
+
+      if (!shippingResponse.ok) {
+        setError(shippingJson?.message || "Unable to calculate shipping.");
+        return;
+      }
+
+      setShippingQuote(shippingJson.data);
+    } catch (err) {
+      console.error("Checkout load error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to the server. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [handleUnauthorized]);
+
   useEffect(() => {
     void loadCheckout();
   }, [loadCheckout]);
-  /* ========================================================================== DERIVED DATA ========================================================================== */ const shippingAddresses =
-    useMemo(
-      () =>
-        addresses.filter(
-          (address) => address.type === "shipping" || address.type === "both",
-        ),
-      [addresses],
-    );
+
+  /* ========================================================================== DERIVED DATA ========================================================================== */
+  const isBuyNow = checkoutMode === "buy-now";
+
+  const shippingAddresses = useMemo(
+    () =>
+      addresses.filter(
+        (address) => address.type === "shipping" || address.type === "both",
+      ),
+    [addresses],
+  );
   const billingAddresses = useMemo(
     () =>
       addresses.filter(
@@ -382,63 +920,366 @@ const EMPTY_ADDRESS: AddressForm = {
       setSavingAddress(false);
     }
   }
-  /* ========================================================================== PLACE ORDER ========================================================================== */ async function placeOrder() {
-    if (!cart || cart.items.length === 0) {
-      setError("Your cart is empty.");
+  /* ========================================================================== RAZORPAY ========================================================================== */
+  async function openRazorpayCheckout(order: {
+    id: number;
+    order_number: string;
+  }) {
+    /*
+    |-------------------------------------------------------------------------- 
+    | Create Razorpay order on backend
+    |-------------------------------------------------------------------------- 
+    |
+    | The amount is NOT sent from the frontend.
+    | Your backend reads orders.total_amount and creates the Razorpay order.
+    |
+    */
+
+    const createResponse = await customerApiFetch(
+      "/customer/payments/razorpay/order",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+        }),
+      },
+    );
+
+    let createData: any = null;
+
+    try {
+      createData = await createResponse.json();
+    } catch {
+      createData = null;
+    }
+
+    if (createResponse.status === 401) {
+      handleUnauthorized();
       return;
     }
+
+    if (!createResponse.ok) {
+      throw new Error(
+        createData?.message ||
+          createData?.data?.message ||
+          "Unable to start Razorpay payment.",
+      );
+    }
+
+    const paymentOrder = createData?.data;
+
+    if (
+      !paymentOrder?.key_id ||
+      !paymentOrder?.razorpay_order_id ||
+      !paymentOrder?.amount ||
+      !paymentOrder?.currency
+    ) {
+      throw new Error("Invalid Razorpay order response from server.");
+    }
+
+    if (!window.Razorpay) {
+      throw new Error(
+        "Razorpay checkout is still loading. Please wait a moment and try again.",
+      );
+    }
+
+    const selectedAddress =
+      addresses.find(
+        (address) => Number(address.id) === Number(shippingAddressId),
+      ) || null;
+
+    const options: RazorpayOptions = {
+      key: String(paymentOrder.key_id),
+      amount: Number(paymentOrder.amount),
+      currency: String(paymentOrder.currency),
+      name: "BanglesMart",
+      description: `Order ${order.order_number}`,
+      order_id: String(paymentOrder.razorpay_order_id),
+
+      prefill: {
+        name: selectedAddress?.full_name || "",
+        contact: selectedAddress?.phone || "",
+      },
+
+      notes: {
+        banglesmart_order_id: String(order.id),
+        order_number: String(order.order_number),
+      },
+
+      theme: {
+        color: "#8d1530",
+      },
+
+      modal: {
+        escape: true,
+        confirm_close: true,
+
+        ondismiss: () => {
+          setPlacingOrder(false);
+          setError(
+            "Payment was cancelled. Your order is awaiting payment. You can try again from your orders page.",
+          );
+        },
+      },
+
+      handler: async (payment: RazorpaySuccessResponse) => {
+        try {
+          setPlacingOrder(true);
+          setError("");
+
+          /*
+          |----------------------------------------------------------------------
+          | Verify Razorpay signature + captured payment on backend
+          |----------------------------------------------------------------------
+          */
+
+          const verifyResponse = await customerApiFetch(
+            "/customer/payments/razorpay/verify",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                banglesmart_order_id: order.id,
+                razorpay_order_id: payment.razorpay_order_id,
+                razorpay_payment_id: payment.razorpay_payment_id,
+                razorpay_signature: payment.razorpay_signature,
+              }),
+            },
+          );
+
+          let verifyData: any = null;
+
+          try {
+            verifyData = await verifyResponse.json();
+          } catch {
+            verifyData = null;
+          }
+
+          if (verifyResponse.status === 401) {
+            handleUnauthorized();
+            return;
+          }
+
+          if (!verifyResponse.ok) {
+            throw new Error(
+              verifyData?.message ||
+                verifyData?.data?.message ||
+                "Payment verification failed.",
+            );
+          }
+
+          /*
+          |----------------------------------------------------------------------
+          | Remove temporary Buy Now state only after successful payment
+          |----------------------------------------------------------------------
+          */
+
+          if (isBuyNow) {
+            sessionStorage.removeItem("banglesmart_buy_now");
+          }
+
+          router.push(
+            `/order-success?order=${encodeURIComponent(
+              order.order_number,
+            )}&id=${order.id}`,
+          );
+        } catch (paymentError) {
+          console.error("Razorpay verification error:", paymentError);
+
+          setError(
+            paymentError instanceof Error
+              ? paymentError.message
+              : "Unable to verify Razorpay payment.",
+          );
+        } finally {
+          setPlacingOrder(false);
+        }
+      },
+    };
+
+    const razorpay = new window.Razorpay(options);
+
+    razorpay.on("payment.failed", (response) => {
+      console.warn("Razorpay payment failed:", response?.error);
+
+      setPlacingOrder(false);
+
+      setError(
+        response?.error?.description || "Payment failed. Please try again.",
+      );
+    });
+
+    /*
+    |-------------------------------------------------------------------------- 
+    | Open Razorpay Standard Checkout
+    |-------------------------------------------------------------------------- 
+    */
+
+    razorpay.open();
+  }
+
+  /* ========================================================================== PLACE ORDER ========================================================================== */
+  async function placeOrder() {
+    if (!cart || cart.items.length === 0) {
+      setError(
+        isBuyNow ? "Your Buy Now selection is empty." : "Your cart is empty.",
+      );
+      return;
+    }
+
     if (!shippingAddressId) {
       setError("Please select a shipping address.");
       return;
     }
+
     if (!sameBilling && !billingAddressId) {
       setError("Please select a billing address.");
       return;
     }
+
+    if (isBuyNow && !buyNowPayload) {
+      setError(
+        "Your Buy Now selection has expired. Please return to the product and try again.",
+      );
+      return;
+    }
+
     try {
       setPlacingOrder(true);
       setError("");
       setCouponError("");
+
+      /*
+      |-------------------------------------------------------------------------- 
+      | Create BanglesMart order
+      |-------------------------------------------------------------------------- 
+      */
+
+      const orderPayload: Record<string, unknown> = {
+        shipping_address_id: shippingAddressId,
+        billing_address_id: sameBilling ? null : billingAddressId,
+        payment_method: paymentMethod,
+        customer_note: customerNote.trim() ? customerNote.trim() : null,
+        coupon_code: appliedCoupon?.code || null,
+      };
+
+      /*
+      |-------------------------------------------------------------------------- 
+      | Buy Now order source
+      |-------------------------------------------------------------------------- 
+      */
+
+      if (isBuyNow && buyNowPayload) {
+        orderPayload.buy_now = {
+          product_variant_id: Number(buyNowPayload.product_variant_id),
+          design_option_id: buyNowPayload.design_option_id
+            ? Number(buyNowPayload.design_option_id)
+            : null,
+          quantity: Number(buyNowPayload.quantity),
+        };
+      }
+
       const response = await customerApiFetch("/customer/orders", {
         method: "POST",
-        body: JSON.stringify({
-          shipping_address_id: shippingAddressId,
-          billing_address_id: sameBilling ? null : billingAddressId,
-          payment_method: "cod",
-          customer_note: customerNote.trim() ? customerNote.trim() : null,
-          coupon_code: appliedCoupon?.code || null,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderPayload),
       });
-      const data = await response.json();
+
+      let data: any = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
       if (response.status === 401) {
         handleUnauthorized();
         return;
       }
+
       if (data?.errors?.coupon_code?.[0]) {
         setCouponError(data.errors.coupon_code[0]);
         setAppliedCoupon(null);
         setDiscountAmount(0);
         return;
       }
+
       if (data?.errors?.cart?.[0]) {
         setError(data.errors.cart[0]);
         return;
       }
+
       if (!response.ok) {
-        setError(data?.message || "Unable to place your order.");
+        throw new Error(data?.message || "Unable to place your order.");
+      }
+
+      const order = data?.data;
+
+      if (!order?.id || !order?.order_number) {
+        throw new Error("Invalid order response from server.");
+      }
+
+      /*
+      |-------------------------------------------------------------------------- 
+      | Cash on Delivery
+      |-------------------------------------------------------------------------- 
+      */
+
+      if (paymentMethod === "cod") {
+        if (isBuyNow) {
+          sessionStorage.removeItem("banglesmart_buy_now");
+        }
+
+        router.push(
+          `/order-success?order=${encodeURIComponent(
+            order.order_number,
+          )}&id=${order.id}`,
+        );
+
         return;
       }
-      const order = data.data;
-      router.push(
-        `/order-success?order=${encodeURIComponent(order.order_number)}&id=${order.id}`,
-      );
+
+      /*
+      |-------------------------------------------------------------------------- 
+      | Razorpay
+      |-------------------------------------------------------------------------- 
+      */
+
+      await openRazorpayCheckout({
+        id: Number(order.id),
+        order_number: String(order.order_number),
+      });
     } catch (err) {
       console.error("Place order error:", err);
-      setError("Unable to connect to server. Please try again.");
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to server. Please try again.",
+      );
     } finally {
-      setPlacingOrder(false);
+      /*
+      |-------------------------------------------------------------------------- 
+      | For Razorpay we let the Checkout callbacks control the final state.
+      |-------------------------------------------------------------------------- 
+      */
+
+      if (paymentMethod === "cod") {
+        setPlacingOrder(false);
+      } else {
+        setPlacingOrder(false);
+      }
     }
   }
+
   /* ========================================================================== LOADING ========================================================================== */ if (
     loading
   ) {
@@ -463,19 +1304,29 @@ const EMPTY_ADDRESS: AddressForm = {
           </p>{" "}
           <h1 className="mt-3 font-serif text-4xl text-[#211a16]">
             {" "}
-            Your cart is empty{" "}
+            {isBuyNow
+              ? "Buy Now checkout unavailable"
+              : "Your cart is empty"}{" "}
           </h1>{" "}
           <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-[#786e66]">
             {" "}
-            Your next favourite piece is waiting. Explore our collection and add
-            something beautiful to your cart.{" "}
+            {isBuyNow
+              ? error ||
+                "Your Buy Now selection is no longer available. Please return to the product and try again."
+              : "Your next favourite piece is waiting. Explore our collection and add something beautiful to your cart."}{" "}
           </p>{" "}
           <Link
-            href="/shop"
+            href={
+              isBuyNow && buyNowPayload?.product_slug
+                ? `/product/${buyNowPayload.product_slug}`
+                : isBuyNow
+                  ? "/shop"
+                  : "/shop"
+            }
             className="mt-8 inline-flex items-center justify-center rounded-full bg-[#8d1530] px-9 py-3.5 text-sm font-semibold text-white transition hover:bg-[#721027]"
           >
             {" "}
-            Continue Shopping{" "}
+            {isBuyNow ? "Back to Product" : "Continue Shopping"}{" "}
           </Link>{" "}
         </div>{" "}
       </main>
@@ -483,7 +1334,11 @@ const EMPTY_ADDRESS: AddressForm = {
   }
   /* ========================================================================== MAIN ========================================================================== */ return (
     <>
-      {" "}
+      <Script
+        id="razorpay-checkout"
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="afterInteractive"
+      />{" "}
       <main className="min-h-screen bg-[#f7f3ee] text-[#211a16]">
         {" "}
         {/* TOP BAR */}{" "}
@@ -492,7 +1347,11 @@ const EMPTY_ADDRESS: AddressForm = {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             {" "}
             <Link
-              href="/cart"
+              href={
+                isBuyNow && buyNowPayload?.product_slug
+                  ? `/product/${buyNowPayload.product_slug}`
+                  : "/cart"
+              }
               className="group inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#6d6259] transition hover:text-[#8d1530]"
             >
               {" "}
@@ -500,7 +1359,7 @@ const EMPTY_ADDRESS: AddressForm = {
                 size={16}
                 className="transition-transform group-hover:-translate-x-1"
               />{" "}
-              Back to Cart{" "}
+              {isBuyNow ? "Back to Product" : "Back to Cart"}{" "}
             </Link>{" "}
             <div className="hidden items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#988b7e] sm:flex">
               {" "}
@@ -527,8 +1386,9 @@ const EMPTY_ADDRESS: AddressForm = {
             </h1>{" "}
             <p className="mt-4 max-w-2xl text-sm leading-7 text-[#756b62] sm:text-base">
               {" "}
-              Review your order and delivery details before placing your
-              order.{" "}
+              {isBuyNow
+                ? "Review your selected product and delivery details before placing your order. Your existing cart will stay unchanged."
+                : "Review your order and delivery details before placing your order."}{" "}
             </p>{" "}
           </div>{" "}
           <div className="mt-8 flex max-w-xl items-center gap-3">
@@ -541,7 +1401,7 @@ const EMPTY_ADDRESS: AddressForm = {
               </span>{" "}
               <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8d1530]">
                 {" "}
-                Cart{" "}
+                {isBuyNow ? "Selection" : "Cart"}{" "}
               </span>{" "}
             </div>{" "}
             <div className="h-px flex-1 bg-[#cfc3b7]" />{" "}
@@ -558,6 +1418,15 @@ const EMPTY_ADDRESS: AddressForm = {
             </div>{" "}
           </div>{" "}
         </div>{" "}
+        {isBuyNow && (
+          <div className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
+            <div className="rounded-2xl border border-[#eadccf] bg-[#fffaf7] px-4 py-3 text-xs leading-5 text-[#756b62]">
+              <span className="font-bold text-[#8d1530]">Buy Now:</span> only
+              this selected product will be ordered. Items already in your cart
+              will remain untouched.
+            </div>
+          </div>
+        )}{" "}
         {/* ERROR */}{" "}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {" "}
@@ -579,6 +1448,7 @@ const EMPTY_ADDRESS: AddressForm = {
               {" "}
               <OrderSummary
                 cart={cart}
+                isBuyNow={isBuyNow}
                 shippingQuote={shippingQuote}
                 subtotal={subtotal}
                 shippingAmount={shippingAmount}
@@ -600,6 +1470,7 @@ const EMPTY_ADDRESS: AddressForm = {
                 shippingAddressId={shippingAddressId}
                 sameBilling={sameBilling}
                 billingAddressId={billingAddressId}
+                paymentMethod={paymentMethod}
                 placeOrder={placeOrder}
               />{" "}
             </div>{" "}
@@ -696,35 +1567,92 @@ const EMPTY_ADDRESS: AddressForm = {
               {/* PAYMENT */}{" "}
               <CheckoutSection
                 number="03"
-                icon={<Truck size={18} />}
+                icon={<CreditCard size={18} />}
                 title="Payment method"
-                subtitle="Simple, secure and convenient."
+                subtitle="Choose how you'd like to pay."
               >
                 {" "}
-                <div className="rounded-2xl border border-[#8d1530] bg-[#fffaf7] p-5">
-                  {" "}
-                  <div className="flex items-start gap-4">
-                    {" "}
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#8d1530] text-white">
-                      {" "}
-                      <Truck size={18} />{" "}
-                    </div>{" "}
-                    <div>
-                      {" "}
-                      <p className="text-sm font-semibold text-[#241d18]">
-                        {" "}
-                        Cash on Delivery{" "}
-                      </p>{" "}
-                      <p className="mt-1 text-xs leading-6 text-[#7b7067]">
-                        {" "}
-                        Pay when your order reaches your doorstep.{" "}
-                      </p>{" "}
-                    </div>{" "}
-                    <div className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-[#8d1530] text-white">
-                      {" "}
-                      <Check size={13} />{" "}
-                    </div>{" "}
-                  </div>{" "}
+                <div className="grid gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod("razorpay");
+                      setError("");
+                    }}
+                    className={`w-full rounded-2xl border p-5 text-left transition ${
+                      paymentMethod === "razorpay"
+                        ? "border-[#8d1530] bg-[#fffaf7] shadow-[0_8px_25px_rgba(141,21,48,.07)]"
+                        : "border-[#e4dcd4] bg-white hover:border-[#cdbfb2]"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                          paymentMethod === "razorpay"
+                            ? "bg-[#8d1530] text-white"
+                            : "bg-[#f4eee8] text-[#8d1530]"
+                        }`}
+                      >
+                        <CreditCard size={18} />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold text-[#241d18]">
+                          Pay Online
+                        </p>
+                        <p className="mt-1 text-xs leading-6 text-[#7b7067]">
+                          Pay securely using UPI, cards, netbanking and other
+                          Razorpay-supported methods.
+                        </p>
+                      </div>
+
+                      {paymentMethod === "razorpay" && (
+                        <div className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#8d1530] text-white">
+                          <Check size={13} />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod("cod");
+                      setError("");
+                    }}
+                    className={`w-full rounded-2xl border p-5 text-left transition ${
+                      paymentMethod === "cod"
+                        ? "border-[#8d1530] bg-[#fffaf7] shadow-[0_8px_25px_rgba(141,21,48,.07)]"
+                        : "border-[#e4dcd4] bg-white hover:border-[#cdbfb2]"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                          paymentMethod === "cod"
+                            ? "bg-[#8d1530] text-white"
+                            : "bg-[#f4eee8] text-[#8d1530]"
+                        }`}
+                      >
+                        <Truck size={18} />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold text-[#241d18]">
+                          Cash on Delivery
+                        </p>
+                        <p className="mt-1 text-xs leading-6 text-[#7b7067]">
+                          Pay when your order reaches your doorstep.
+                        </p>
+                      </div>
+
+                      {paymentMethod === "cod" && (
+                        <div className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#8d1530] text-white">
+                          <Check size={13} />
+                        </div>
+                      )}
+                    </div>
+                  </button>
                 </div>{" "}
               </CheckoutSection>{" "}
               {/* ORDER NOTE */}{" "}
@@ -766,23 +1694,27 @@ const EMPTY_ADDRESS: AddressForm = {
                     <>
                       {" "}
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />{" "}
-                      Placing Order{" "}
+                      {paymentMethod === "razorpay"
+                        ? "Starting Payment"
+                        : "Placing Order"}{" "}
                     </>
                   ) : (
                     <>
                       {" "}
-                      Place COD Order <span className="opacity-50">
-                        {" "}
-                        ·{" "}
-                      </span>{" "}
+                      {paymentMethod === "razorpay"
+                        ? "Pay Online"
+                        : "Place COD Order"}{" "}
+                      <span className="opacity-50">·</span>{" "}
                       {formatPrice(totalAmount)}{" "}
                     </>
                   )}{" "}
                 </button>{" "}
                 <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-[#91867d]">
                   {" "}
-                  <LockKeyhole size={13} /> Secure checkout · Cash on
-                  Delivery{" "}
+                  <LockKeyhole size={13} />{" "}
+                  {paymentMethod === "razorpay"
+                    ? "Secure online payment"
+                    : "Secure checkout · Cash on Delivery"}{" "}
                 </div>{" "}
               </div>{" "}
             </div>{" "}
@@ -793,6 +1725,7 @@ const EMPTY_ADDRESS: AddressForm = {
                 {" "}
                 <OrderSummary
                   cart={cart}
+                  isBuyNow={isBuyNow}
                   shippingQuote={shippingQuote}
                   subtotal={subtotal}
                   shippingAmount={shippingAmount}
@@ -814,6 +1747,7 @@ const EMPTY_ADDRESS: AddressForm = {
                   shippingAddressId={shippingAddressId}
                   sameBilling={sameBilling}
                   billingAddressId={billingAddressId}
+                  paymentMethod={paymentMethod}
                   placeOrder={placeOrder}
                 />{" "}
               </div>{" "}
@@ -995,6 +1929,7 @@ const EMPTY_ADDRESS: AddressForm = {
 }
 /* ========================================================================== ORDER SUMMARY ========================================================================== */ function OrderSummary({
   cart,
+  isBuyNow,
   shippingQuote,
   subtotal,
   shippingAmount,
@@ -1016,9 +1951,11 @@ const EMPTY_ADDRESS: AddressForm = {
   shippingAddressId,
   sameBilling,
   billingAddressId,
+  paymentMethod,
   placeOrder,
 }: {
   cart: CartData;
+  isBuyNow: boolean;
   shippingQuote: ShippingQuote | null;
   subtotal: number;
   shippingAmount: number;
@@ -1040,6 +1977,7 @@ const EMPTY_ADDRESS: AddressForm = {
   shippingAddressId: number | null;
   sameBilling: boolean;
   billingAddressId: number | null;
+  paymentMethod: PaymentMethod;
   placeOrder: () => Promise<void>;
 }) {
   return (
@@ -1063,6 +2001,7 @@ const EMPTY_ADDRESS: AddressForm = {
           </div>{" "}
           <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#756a61] shadow-sm">
             {" "}
+            {isBuyNow ? "Buy Now · " : ""}
             {cart.item_count} {cart.item_count === 1 ? "Item" : "Items"}{" "}
           </span>{" "}
         </div>{" "}
@@ -1072,7 +2011,9 @@ const EMPTY_ADDRESS: AddressForm = {
         {" "}
         {cart.items.map((item) => {
           const product = item.variant?.product;
-          const image = product?.primary_image?.image;
+          const image =
+            product?.primary_image?.url || product?.primary_image?.image || "";
+          const design = item.design_option?.label || null;
           const size = item.variant?.size
             ? item.variant.size.display_name || item.variant.size.name
             : null;
@@ -1086,7 +2027,7 @@ const EMPTY_ADDRESS: AddressForm = {
                 {" "}
                 {image ? (
                   <img
-                    src={getProductImageUrl(image) || "/logo.png"}
+                    src={getProductImageSrc(image)}
                     alt={product?.name || "Product"}
                     className="h-full w-full object-cover"
                   />
@@ -1107,10 +2048,12 @@ const EMPTY_ADDRESS: AddressForm = {
                   {" "}
                   {product?.name || "Product"}{" "}
                 </p>{" "}
-                {(size || color) && (
+                {(size || color || design) && (
                   <p className="mt-1.5 text-[10px] uppercase tracking-[0.08em] text-[#8b7e74]">
                     {" "}
-                    {size || "Standard"} {color ? ` · ${color}` : ""}{" "}
+                    {size || "Standard"}
+                    {color ? ` · ${color}` : ""}
+                    {design ? ` · ${design}` : ""}{" "}
                   </p>
                 )}{" "}
                 <p className="mt-3 text-sm font-semibold text-[#8d1530]">
@@ -1258,7 +2201,7 @@ const EMPTY_ADDRESS: AddressForm = {
               Final amount payable{" "}
             </p>{" "}
           </div>{" "}
-          <p className="font-serif text-3xl text-[#8d1530]">
+          <p className="text-3xl text-[#8d1530]">
             {" "}
             {formatPrice(totalAmount)}{" "}
           </p>{" "}
@@ -1285,16 +2228,27 @@ const EMPTY_ADDRESS: AddressForm = {
             <>
               {" "}
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />{" "}
-              Placing Order{" "}
+              {paymentMethod === "razorpay"
+                ? "Starting Payment"
+                : "Placing Order"}{" "}
             </>
           ) : (
             <>
               {" "}
-              Place COD Order <span className="opacity-50">·</span>{" "}
+              {paymentMethod === "razorpay"
+                ? "Pay Online"
+                : "Place COD Order"}{" "}
+              <span className="opacity-50">·</span>{" "}
               {formatPrice(totalAmount)}{" "}
             </>
           )}{" "}
         </button>{" "}
+        <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-[#91867d]">
+          <LockKeyhole size={13} />
+          {paymentMethod === "razorpay"
+            ? "Secure online payment powered by Razorpay"
+            : "Secure checkout · Cash on Delivery"}
+        </div>{" "}
         {/* TRUST */}{" "}
         <div className="mt-6 grid grid-cols-3 divide-x divide-[#eee6dd] border-t border-[#eee6dd] pt-5">
           {" "}

@@ -1,38 +1,28 @@
 "use client";
 
-import {
-  ChangeEvent,
-  FormEvent,
-  useEffect,
-  useState,
-} from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import {
-  ArrowLeft,
-  ImagePlus,
-  Save,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 
-import {
-  useParams,
-  useRouter,
-} from "next/navigation";
+import { useParams } from "next/navigation";
 
 import ProductVariants from "@/components/admin/products/ProductVariants";
 
-import {
-  apiFetch,
-  BACKEND_URL,
-} from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
+import ProductDesignOptions from "@/components/admin/products/ProductDesignOptions";
 
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
+import ProductImageManager from "@/components/admin/products/ProductImageManager";
+
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
+import { apiFetch } from "@/lib/api";
+
+/*
+|--------------------------------------------------------------------------
+| Types
+|--------------------------------------------------------------------------
+*/
 
 type Category = {
   id: number;
@@ -46,900 +36,615 @@ type Material = {
   status: string;
 };
 
-type ProductImage = {
-  id: number;
-  product_id: number;
-  image: string;
-  alt_text: string | null;
-  sort_order: number;
-  is_primary: boolean | number;
-  url?: string;
-};
-
 type Product = {
   id: number;
+
   name: string;
 
   category_id: number | null;
+
   material_id: number | null;
 
   sku: string | null;
+
   short_description: string | null;
+
   description: string | null;
 
   mrp: number | string | null;
+
   selling_price: number | string | null;
+
   set_quantity: number | string | null;
 
   status: string;
 
   featured: boolean | number | string;
+
   best_seller: boolean | number | string;
+
   new_arrival: boolean | number | string;
 
   seo_title: string | null;
-  seo_description: string | null;
 
-  images?: ProductImage[];
+  seo_description: string | null;
 };
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
+/*
+|--------------------------------------------------------------------------
+| Boolean Helper
+|--------------------------------------------------------------------------
+*/
 
 function toBoolean(value: unknown): boolean {
-  return (
-    value === true ||
-    value === 1 ||
-    value === "1" ||
-    value === "true"
-  );
+  return value === true || value === 1 || value === "1" || value === "true";
 }
 
-function getImageUrl(image: ProductImage) {
-  const raw = image.url || image.image;
-  if (!raw) return "";
-  return getProductImageUrl(raw) || "";
-}
-
-/* -------------------------------------------------------------------------- */
-/* Page                                                                       */
-/* -------------------------------------------------------------------------- */
+/*
+|--------------------------------------------------------------------------
+| Edit Product Page
+|--------------------------------------------------------------------------
+*/
 
 export default function EditProductPage() {
-  const router = useRouter();
-
   const params = useParams();
 
-  const productId = String(params.id);
+  const { toast } = useAdminFeedback();
 
-  /* ------------------------------------------------------------------------ */
-  /* Product State                                                             */
-  /* ------------------------------------------------------------------------ */
+  const productId = String(params.id || "");
 
-  const [categories, setCategories] =
-    useState<Category[]>([]);
+  /*
+  |--------------------------------------------------------------------------
+  | Master Data
+  |--------------------------------------------------------------------------
+  */
 
-  const [materials, setMaterials] =
-    useState<Material[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [materials, setMaterials] = useState<Material[]>([]);
 
-  const [name, setName] =
-    useState("");
+  /*
+  |--------------------------------------------------------------------------
+  | Loading
+  |--------------------------------------------------------------------------
+  */
 
-  const [categoryId, setCategoryId] =
-    useState("");
+  const [loading, setLoading] = useState(true);
 
-  const [materialId, setMaterialId] =
-    useState("");
+  const [saving, setSaving] = useState(false);
 
-  const [sku, setSku] =
-    useState("");
+  const [error, setError] = useState("");
 
-  const [shortDescription, setShortDescription] =
-    useState("");
+  /*
+  |--------------------------------------------------------------------------
+  | Product Information
+  |--------------------------------------------------------------------------
+  */
 
-  const [description, setDescription] =
-    useState("");
+  const [name, setName] = useState("");
 
-  const [mrp, setMrp] =
-    useState("");
+  const [categoryId, setCategoryId] = useState("");
 
-  const [sellingPrice, setSellingPrice] =
-    useState("");
+  const [materialId, setMaterialId] = useState("");
 
-  const [setQuantity, setSetQuantity] =
-    useState("1");
+  const [sku, setSku] = useState("");
 
-  const [status, setStatus] =
-    useState("active");
+  const [shortDescription, setShortDescription] = useState("");
 
-  const [featured, setFeatured] =
-    useState(false);
+  const [description, setDescription] = useState("");
 
-  const [bestSeller, setBestSeller] =
-    useState(false);
+  /*
+  |--------------------------------------------------------------------------
+  | Pricing
+  |--------------------------------------------------------------------------
+  */
 
-  const [newArrival, setNewArrival] =
-    useState(false);
+  const [mrp, setMrp] = useState("");
 
-  const [seoTitle, setSeoTitle] =
-    useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
 
-  const [seoDescription, setSeoDescription] =
-    useState("");
+  /*
+  |--------------------------------------------------------------------------
+  | Other Product Data
+  |--------------------------------------------------------------------------
+  */
 
-  const [saving, setSaving] =
-    useState(false);
+  const [setQuantity, setSetQuantity] = useState("1");
 
-  const [error, setError] =
-    useState("");
+  const [status, setStatus] = useState("active");
 
-  /* ------------------------------------------------------------------------ */
-  /* Image State                                                               */
-  /* ------------------------------------------------------------------------ */
+  const [featured, setFeatured] = useState(false);
 
-  const [images, setImages] =
-    useState<ProductImage[]>([]);
+  const [bestSeller, setBestSeller] = useState(false);
 
-  const [uploadingImages, setUploadingImages] =
-    useState(false);
+  const [newArrival, setNewArrival] = useState(false);
 
-  const [imageError, setImageError] =
-    useState("");
+  /*
+  |--------------------------------------------------------------------------
+  | SEO
+  |--------------------------------------------------------------------------
+  */
 
-  /* ------------------------------------------------------------------------ */
-  /* Load Product + Categories + Materials                                    */
-  /* ------------------------------------------------------------------------ */
+  const [seoTitle, setSeoTitle] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  const [seoDescription, setSeoDescription] = useState("");
 
-    async function loadData() {
-      try {
-        setLoading(true);
-        setError("");
+  /*
+  |--------------------------------------------------------------------------
+  | Populate Product State
+  |--------------------------------------------------------------------------
+  */
 
-        const [
-          productResponse,
-          categoryResponse,
-          materialResponse,
-        ] = await Promise.all([
-          apiFetch(
-            `/admin/products/${productId}`,
-          ),
+  const populateProduct = useCallback((product: Product) => {
+    setName(product.name || "");
 
-          apiFetch(
-            "/admin/categories",
-          ),
+    setCategoryId(
+      product.category_id !== null && product.category_id !== undefined
+        ? String(product.category_id)
+        : "",
+    );
 
-          apiFetch(
-            "/admin/materials",
-          ),
+    setMaterialId(
+      product.material_id !== null && product.material_id !== undefined
+        ? String(product.material_id)
+        : "",
+    );
+
+    setSku(product.sku || "");
+
+    setShortDescription(product.short_description || "");
+
+    setDescription(product.description || "");
+
+    setMrp(
+      product.mrp !== null && product.mrp !== undefined
+        ? String(product.mrp)
+        : "",
+    );
+
+    setSellingPrice(
+      product.selling_price !== null && product.selling_price !== undefined
+        ? String(product.selling_price)
+        : "",
+    );
+
+    setSetQuantity(
+      product.set_quantity !== null && product.set_quantity !== undefined
+        ? String(product.set_quantity)
+        : "1",
+    );
+
+    setStatus(product.status || "active");
+
+    /*
+        |--------------------------------------------------------------------------
+        | IMPORTANT
+        |--------------------------------------------------------------------------
+        |
+        | Boolean("0") is true.
+        |
+        | So always use our helper.
+        |
+        */
+
+    setFeatured(toBoolean(product.featured));
+
+    setBestSeller(toBoolean(product.best_seller));
+
+    setNewArrival(toBoolean(product.new_arrival));
+
+    setSeoTitle(product.seo_title || "");
+
+    setSeoDescription(product.seo_description || "");
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Load Product + Categories + Materials
+  |--------------------------------------------------------------------------
+  */
+
+  const loadData = useCallback(async () => {
+    if (!productId) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      setError("");
+
+      const [productResponse, categoryResponse, materialResponse] =
+        await Promise.all([
+          apiFetch(`/admin/products/${productId}`),
+
+          apiFetch("/admin/categories"),
+
+          apiFetch("/admin/materials"),
         ]);
 
-        const productData =
-          await productResponse.json();
+      const productData = await productResponse.json();
 
-        const categoryData =
-          await categoryResponse.json();
+      const categoryData = await categoryResponse.json();
 
-        const materialData =
-          await materialResponse.json();
+      const materialData = await materialResponse.json();
 
-        if (cancelled) {
-          return;
-        }
+      /*
+          |--------------------------------------------------------------------------
+          | Product
+          |--------------------------------------------------------------------------
+          */
 
-        /* ------------------------------------------------------------------ */
-        /* Product                                                             */
-        /* ------------------------------------------------------------------ */
-
-        if (!productResponse.ok) {
-          setError(
-            productData?.message ||
-              "Unable to load product.",
-          );
-
-          return;
-        }
-
-        const product =
-          productData?.data as Product;
-
-        if (!product) {
-          setError(
-            "Product data not found.",
-          );
-
-          return;
-        }
-
-        setName(
-          product.name || "",
-        );
-
-        setCategoryId(
-          product.category_id !== null &&
-            product.category_id !== undefined
-            ? String(product.category_id)
-            : "",
-        );
-
-        setMaterialId(
-          product.material_id !== null &&
-            product.material_id !== undefined
-            ? String(product.material_id)
-            : "",
-        );
-
-        setSku(
-          product.sku || "",
-        );
-
-        setShortDescription(
-          product.short_description || "",
-        );
-
-        setDescription(
-          product.description || "",
-        );
-
-        setMrp(
-          String(product.mrp ?? ""),
-        );
-
-        setSellingPrice(
-          String(product.selling_price ?? ""),
-        );
-
-        setSetQuantity(
-          String(product.set_quantity ?? 1),
-        );
-
-        setStatus(
-          product.status || "active",
-        );
-
-        /*
-         * IMPORTANT:
-         * Do not use Boolean("0").
-         * Boolean("0") === true.
-         */
-
-        setFeatured(
-          toBoolean(product.featured),
-        );
-
-        setBestSeller(
-          toBoolean(product.best_seller),
-        );
-
-        setNewArrival(
-          toBoolean(product.new_arrival),
-        );
-
-        setSeoTitle(
-          product.seo_title || "",
-        );
-
-        setSeoDescription(
-          product.seo_description || "",
-        );
-
-        setImages(
-          Array.isArray(product.images)
-            ? product.images
-            : [],
-        );
-
-        /* ------------------------------------------------------------------ */
-        /* Categories                                                          */
-        /* ------------------------------------------------------------------ */
-
-        if (categoryResponse.ok) {
-          const categoryRows =
-            Array.isArray(categoryData?.data)
-              ? categoryData.data
-              : [];
-
-          setCategories(
-            categoryRows.filter(
-              (category: Category) =>
-                category.status === "active",
-            ),
-          );
-        }
-
-        /* ------------------------------------------------------------------ */
-        /* Materials                                                           */
-        /* ------------------------------------------------------------------ */
-
-        if (materialResponse.ok) {
-          const materialRows =
-            Array.isArray(materialData?.data)
-              ? materialData.data
-              : [];
-
-          setMaterials(
-            materialRows.filter(
-              (material: Material) =>
-                material.status === "active",
-            ),
-          );
-        } else {
-          console.error(
-            "Unable to load materials:",
-            materialData,
-          );
-        }
-      } catch (err) {
-        console.error(
-          "Load product error:",
-          err,
-        );
-
-        if (!cancelled) {
-          setError(
-            "Unable to connect to server.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      if (!productResponse.ok) {
+        throw new Error(productData?.message || "Unable to load product.");
       }
+
+      const product = productData?.data as Product | undefined;
+
+      if (!product) {
+        throw new Error("Product data not found.");
+      }
+
+      populateProduct(product);
+
+      /*
+          |--------------------------------------------------------------------------
+          | Categories
+          |--------------------------------------------------------------------------
+          */
+
+      if (categoryResponse.ok) {
+        const rows = Array.isArray(categoryData?.data) ? categoryData.data : [];
+
+        setCategories(
+          rows.filter((category: Category) => category.status === "active"),
+        );
+      } else {
+        console.error("Unable to load categories:", categoryData);
+      }
+
+      /*
+          |--------------------------------------------------------------------------
+          | Materials
+          |--------------------------------------------------------------------------
+          */
+
+      if (materialResponse.ok) {
+        const rows = Array.isArray(materialData?.data) ? materialData.data : [];
+
+        setMaterials(
+          rows.filter((material: Material) => material.status === "active"),
+        );
+      } else {
+        console.error("Unable to load materials:", materialData);
+      }
+    } catch (err) {
+      console.error("Load product error:", err);
+
+      setError(
+        err instanceof Error ? err.message : "Unable to connect to server.",
+      );
+    } finally {
+      setLoading(false);
     }
+  }, [productId, populateProduct]);
 
-    if (productId) {
-      loadData();
-    }
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [productId]);
-
-  /* ------------------------------------------------------------------------ */
-  /* Reload Product                                                           */
-  /* ------------------------------------------------------------------------ */
+  /*
+  |--------------------------------------------------------------------------
+  | Reload Product Only
+  |--------------------------------------------------------------------------
+  */
 
   async function reloadProduct() {
     try {
-      const response =
-        await apiFetch(
-          `/admin/products/${productId}`,
-        );
+      const response = await apiFetch(`/admin/products/${productId}`);
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        console.error(
-          data?.message ||
-            "Unable to reload product.",
-        );
+        console.error(data?.message || "Unable to reload product.");
 
         return;
       }
 
-      const product =
-        data?.data;
+      const product = data?.data as Product | undefined;
 
       if (!product) {
         return;
       }
 
-      setName(
-        product.name || "",
-      );
-
-      setCategoryId(
-        product.category_id !== null &&
-          product.category_id !== undefined
-          ? String(product.category_id)
-          : "",
-      );
-
-      setMaterialId(
-        product.material_id !== null &&
-          product.material_id !== undefined
-          ? String(product.material_id)
-          : "",
-      );
-
-      setSku(
-        product.sku || "",
-      );
-
-      setShortDescription(
-        product.short_description || "",
-      );
-
-      setDescription(
-        product.description || "",
-      );
-
-      setMrp(
-        String(product.mrp ?? ""),
-      );
-
-      setSellingPrice(
-        String(product.selling_price ?? ""),
-      );
-
-      setSetQuantity(
-        String(product.set_quantity ?? 1),
-      );
-
-      setStatus(
-        product.status || "active",
-      );
-
-      setFeatured(
-        toBoolean(product.featured),
-      );
-
-      setBestSeller(
-        toBoolean(product.best_seller),
-      );
-
-      setNewArrival(
-        toBoolean(product.new_arrival),
-      );
-
-      setSeoTitle(
-        product.seo_title || "",
-      );
-
-      setSeoDescription(
-        product.seo_description || "",
-      );
-
-      setImages(
-        Array.isArray(product.images)
-          ? product.images
-          : [],
-      );
-    } catch (error) {
-      console.error(
-        "Unable to reload product:",
-        error,
-      );
+      populateProduct(product);
+    } catch (err) {
+      console.error("Unable to reload product:", err);
     }
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Upload Images                                                             */
-  /* ------------------------------------------------------------------------ */
+  /*
+  |--------------------------------------------------------------------------
+  | Update Product
+  |--------------------------------------------------------------------------
+  */
 
-  async function handleImageUpload(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const selectedFiles =
-      event.target.files;
-
-    if (
-      !selectedFiles ||
-      selectedFiles.length === 0
-    ) {
-      return;
-    }
-
-    setUploadingImages(true);
-    setImageError("");
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     try {
-      const files =
-        Array.from(selectedFiles);
+      setSaving(true);
+
+      setError("");
 
       /*
       |--------------------------------------------------------------------------
-      | Upload files individually
-      |--------------------------------------------------------------------------
-      |
-      | Backend expects:
-      |
-      | req.file
-      |
-      | Therefore:
-      |
-      | image
-      |
-      | NOT:
-      |
-      | images[]
-      |
+      | Validation
       |--------------------------------------------------------------------------
       */
 
-      for (
-        let index = 0;
-        index < files.length;
-        index++
-      ) {
-        const file =
-          files[index];
+      const trimmedName = name.trim();
 
-        const formData =
-          new FormData();
-
-        formData.append(
-          "image",
-          file,
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | First uploaded image becomes primary
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-          images.length === 0 &&
-          index === 0
-        ) {
-          formData.append(
-            "is_primary",
-            "1",
-          );
-        }
-
-        const response =
-          await apiFetch(
-            `/admin/products/${productId}/images`,
-            {
-              method: "POST",
-              body: formData,
-            },
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          setImageError(
-            data?.message ||
-              `Unable to upload image: ${file.name}`,
-          );
-
-          break;
-        }
-      }
-
-      await reloadProduct();
-    } catch (error) {
-      console.error(
-        "Image upload error:",
-        error,
-      );
-
-      setImageError(
-        "Unable to upload images.",
-      );
-    } finally {
-      setUploadingImages(false);
-
-      event.target.value = "";
-    }
-  }
-
-  /* ------------------------------------------------------------------------ */
-  /* Delete Image                                                              */
-  /* ------------------------------------------------------------------------ */
-
-  async function deleteImage(
-    imageId: number,
-  ) {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this image?",
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      const response =
-        await apiFetch(
-          `/admin/product-images/${imageId}`,
-          {
-            method: "DELETE",
-          },
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data?.message ||
-            "Unable to delete image.",
-        );
+      if (!trimmedName) {
+        setError("Product name is required.");
 
         return;
       }
 
-      await reloadProduct();
-    } catch (error) {
-      console.error(
-        "Delete image error:",
-        error,
-      );
-
-      window.alert(
-        "Unable to connect to server.",
-      );
-    }
-  }
-
-  /* ------------------------------------------------------------------------ */
-  /* Set Primary Image                                                        */
-  /* ------------------------------------------------------------------------ */
-
-  async function setPrimaryImage(
-    imageId: number,
-  ) {
-    try {
-      const response =
-        await apiFetch(
-          `/admin/product-images/${imageId}/primary`,
-          {
-            method: "PUT",
-          },
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data?.message ||
-            "Unable to set primary image.",
-        );
+      if (mrp === "" || Number(mrp) < 0) {
+        setError("Please enter a valid MRP.");
 
         return;
       }
 
-      await reloadProduct();
-    } catch (err) {
-      console.error(
-        "Primary image error:",
-        err,
-      );
+      if (sellingPrice === "" || Number(sellingPrice) < 0) {
+        setError("Please enter a valid selling price.");
 
-      window.alert(
-        "Unable to connect to server.",
-      );
-    }
-  }
+        return;
+      }
 
-  /* ------------------------------------------------------------------------ */
-  /* Update Product                                                            */
-  /* ------------------------------------------------------------------------ */
+      if (Number(sellingPrice) > Number(mrp)) {
+        setError("Selling price cannot be greater than MRP.");
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
+        return;
+      }
 
-    setSaving(true);
-    setError("");
+      /*
+      |--------------------------------------------------------------------------
+      | Payload
+      |--------------------------------------------------------------------------
+      */
 
-    try {
       const payload = {
-        name: name.trim(),
+        name: trimmedName,
 
-        category_id: categoryId
-          ? Number(categoryId)
+        category_id: categoryId ? Number(categoryId) : null,
+
+        material_id: materialId ? Number(materialId) : null,
+
+        sku: sku.trim() ? sku.trim() : null,
+
+        short_description: shortDescription.trim()
+          ? shortDescription.trim()
           : null,
 
-        material_id: materialId
-          ? Number(materialId)
-          : null,
+        description: description.trim() ? description.trim() : null,
 
-        sku: sku.trim()
-          ? sku.trim()
-          : null,
+        mrp: Number(mrp),
 
-        short_description:
-          shortDescription.trim()
-            ? shortDescription.trim()
-            : null,
+        selling_price: Number(sellingPrice),
 
-        description:
-          description.trim()
-            ? description.trim()
-            : null,
+        set_quantity: setQuantity !== "" ? Math.max(1, Number(setQuantity)) : 1,
 
-        mrp:
-          mrp !== ""
-            ? Number(mrp)
-            : 0,
+        status: status || "active",
 
-        selling_price:
-          sellingPrice !== ""
-            ? Number(sellingPrice)
-            : 0,
+        featured: Boolean(featured),
 
-        set_quantity:
-          setQuantity !== ""
-            ? Number(setQuantity)
-            : 1,
+        best_seller: Boolean(bestSeller),
 
-        status:
-          status || "active",
+        new_arrival: Boolean(newArrival),
 
-        featured:
-          Boolean(featured),
+        seo_title: seoTitle.trim() ? seoTitle.trim() : null,
 
-        best_seller:
-          Boolean(bestSeller),
-
-        new_arrival:
-          Boolean(newArrival),
-
-        seo_title:
-          seoTitle.trim()
-            ? seoTitle.trim()
-            : null,
-
-        seo_description:
-          seoDescription.trim()
-            ? seoDescription.trim()
-            : null,
+        seo_description: seoDescription.trim() ? seoDescription.trim() : null,
       };
 
-      const response =
-        await apiFetch(
-          `/admin/products/${productId}`,
-          {
-            method: "PUT",
-            body: JSON.stringify(payload),
-          },
-        );
+      /*
+      |--------------------------------------------------------------------------
+      | API
+      |--------------------------------------------------------------------------
+      */
 
-      const data =
-        await response.json();
+      const response = await apiFetch(`/admin/products/${productId}`, {
+        method: "PUT",
+
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      /*
+      |--------------------------------------------------------------------------
+      | API Error
+      |--------------------------------------------------------------------------
+      */
 
       if (!response.ok) {
-        const validationErrors =
-          data?.errors as
-            | Record<
-                string,
-                string[]
-              >
-            | undefined;
+        const validationErrors = data?.errors as
+          | Record<string, string[]>
+          | undefined;
 
-        const firstError =
-          validationErrors
-            ? Object.values(
-                validationErrors,
-              )[0]?.[0]
-            : undefined;
+        const firstError = validationErrors
+          ? Object.values(validationErrors)[0]?.[0]
+          : undefined;
 
-        setError(
-          firstError ||
-            data?.message ||
-            "Unable to update product.",
-        );
+        setError(firstError || data?.message || "Unable to update product.");
 
         return;
       }
 
+      /*
+      |--------------------------------------------------------------------------
+      | Success
+      |--------------------------------------------------------------------------
+      */
+
       await reloadProduct();
 
-      window.alert(
-        "Product updated successfully.",
-      );
-    } catch (error) {
-      console.error(
-        "Update product error:",
-        error,
-      );
+      toast("Product updated successfully.", "success");
+    } catch (err) {
+      console.error("Update product error:", err);
 
       setError(
-        "Unable to connect to server.",
+        err instanceof Error ? err.message : "Unable to connect to server.",
       );
     } finally {
       setSaving(false);
     }
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Loading                                                                   */
-  /* ------------------------------------------------------------------------ */
+  /*
+  |--------------------------------------------------------------------------
+  | Loading State
+  |--------------------------------------------------------------------------
+  */
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-sm text-gray-500">
-          Loading product...
-        </p>
+      <div className="space-y-6 pb-10">
+        <div className="h-20 animate-pulse rounded-2xl bg-white" />
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-6">
+            <div className="h-80 animate-pulse rounded-2xl bg-white" />
+
+            <div className="h-80 animate-pulse rounded-2xl bg-white" />
+          </div>
+
+          <div className="space-y-6">
+            <div className="h-40 animate-pulse rounded-2xl bg-white" />
+
+            <div className="h-40 animate-pulse rounded-2xl bg-white" />
+          </div>
+        </div>
       </div>
     );
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Render                                                                    */
-  /* ------------------------------------------------------------------------ */
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
 
   return (
-    <div className="pb-10">
-      {/* ==================================================================== */}
-      {/* HEADER                                                               */}
-      {/* ==================================================================== */}
+    <div className="pb-12">
+      {/* ================================================================
+          HEADER
+      ================================================================ */}
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/products"
-            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-700 transition hover:bg-gray-100"
-          >
-            <ArrowLeft size={19} />
-          </Link>
+      <div className="mb-6 rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/products"
+              className="
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-xl
+                border
+                border-gray-200
+                bg-white
+                text-gray-700
+                transition
+                hover:bg-gray-50
+              "
+            >
+              <ArrowLeft size={18} />
+            </Link>
 
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Edit Product
-            </h1>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#aa852e]">
+                Catalogue Management
+              </p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Update product information, images,
-              variants and inventory.
-            </p>
+              <h1 className="mt-1 text-2xl font-semibold text-gray-900">
+                Edit Product
+              </h1>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Manage product information, color-aware images, variants,
+                inventory and optional designs.
+              </p>
+            </div>
           </div>
+
+          <button
+            type="submit"
+            form="edit-product-form"
+            disabled={saving}
+            className="
+              inline-flex
+              items-center
+              gap-2
+              rounded-xl
+              bg-[#650b12]
+              px-5
+              py-2.5
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-[#7b0d17]
+              disabled:cursor-not-allowed
+              disabled:opacity-50
+            "
+          >
+            <Save size={17} />
+
+            {saving ? "Updating..." : "Update product"}
+          </button>
         </div>
-
-        <button
-          type="submit"
-          form="edit-product-form"
-          disabled={saving}
-          className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Save size={18} />
-
-          {saving
-            ? "Updating..."
-            : "Update product"}
-        </button>
       </div>
 
-      {/* ==================================================================== */}
-      {/* ERROR                                                                */}
-      {/* ==================================================================== */}
+      {/* ================================================================
+          ERROR
+      ================================================================ */}
 
       {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {/* ==================================================================== */}
-      {/* PRODUCT FORM                                                         */}
-      {/* ==================================================================== */}
+      {/* ================================================================
+          PRODUCT FORM
+      ================================================================ */}
 
-      <form
-        id="edit-product-form"
-        onSubmit={handleSubmit}
-      >
+      <form id="edit-product-form" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          {/* ================================================================= */}
-          {/* LEFT COLUMN                                                       */}
-          {/* ================================================================= */}
+          {/* ============================================================
+              LEFT COLUMN
+          ============================================================ */}
 
           <div className="space-y-6">
-            {/* ---------------------------------------------------------------- */}
-            {/* PRODUCT INFORMATION                                              */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                PRODUCT INFORMATION
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="font-semibold text-gray-900">
-                Product Information
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)] sm:p-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#aa852e]">
+                  Basic information
+                </p>
+
+                <h2 className="mt-2 text-lg font-semibold text-gray-900">
+                  Product Information
+                </h2>
+              </div>
 
               <div className="mt-5 space-y-5">
                 {/* Product Name */}
@@ -953,12 +658,21 @@ export default function EditProductPage() {
                     type="text"
                     required
                     value={name}
-                    onChange={(event) =>
-                      setName(
-                        event.target.value,
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-600"
+                    onChange={(event) => setName(event.target.value)}
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      transition
+                      focus:border-[#a8822b]
+                      focus:ring-2
+                      focus:ring-[#a8822b]/10
+                    "
                   />
                 </div>
 
@@ -973,11 +687,22 @@ export default function EditProductPage() {
                     rows={3}
                     value={shortDescription}
                     onChange={(event) =>
-                      setShortDescription(
-                        event.target.value,
-                      )
+                      setShortDescription(event.target.value)
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-600"
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      transition
+                      focus:border-[#a8822b]
+                      focus:ring-2
+                      focus:ring-[#a8822b]/10
+                    "
                   />
                 </div>
 
@@ -991,191 +716,51 @@ export default function EditProductPage() {
                   <textarea
                     rows={7}
                     value={description}
-                    onChange={(event) =>
-                      setDescription(
-                        event.target.value,
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-600"
+                    onChange={(event) => setDescription(event.target.value)}
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      transition
+                      focus:border-[#a8822b]
+                      focus:ring-2
+                      focus:ring-[#a8822b]/10
+                    "
                   />
                 </div>
               </div>
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* PRODUCT IMAGES                                                    */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                COLOR-AWARE PRODUCT IMAGES
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-gray-900">
-                    Product Images
-                  </h2>
+            <ProductImageManager productId={Number(productId)} />
 
-                  <p className="mt-1 text-sm text-gray-500">
-                    Upload JPG, PNG or WebP product
-                    images.
-                  </p>
-                </div>
+            {/* ==========================================================
+                BASE PRICING
+            ========================================================== */}
 
-                <label
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-black ${
-                    uploadingImages
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }`}
-                >
-                  <ImagePlus size={18} />
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)] sm:p-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#aa852e]">
+                  Default pricing
+                </p>
 
-                  {uploadingImages
-                    ? "Uploading..."
-                    : "Upload Images"}
+                <h2 className="mt-2 text-lg font-semibold text-gray-900">
+                  Base Pricing
+                </h2>
 
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={
-                      handleImageUpload
-                    }
-                    disabled={
-                      uploadingImages
-                    }
-                    className="hidden"
-                  />
-                </label>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Variant-level pricing can still be managed in the Variants
+                  section below.
+                </p>
               </div>
-
-              {imageError && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {imageError}
-                </div>
-              )}
-
-              {/* No Images */}
-
-              {images.length === 0 ? (
-                <div className="mt-6 flex min-h-52 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-                  <div className="text-center">
-                    <ImagePlus
-                      size={35}
-                      className="mx-auto text-gray-300"
-                    />
-
-                    <p className="mt-3 text-sm font-medium text-gray-700">
-                      No product images
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                      Upload one or more product
-                      images.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {images.map((image) => {
-                    const imageSrc =
-                      getImageUrl(
-                        image,
-                      );
-
-                    const primary =
-                      image.is_primary ===
-                        true ||
-                      Number(
-                        image.is_primary,
-                      ) === 1;
-
-                    return (
-                      <div
-                        key={image.id}
-                        className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                      >
-                        {/* Image */}
-
-                        <div className="relative aspect-square overflow-hidden bg-gray-100">
-                          {imageSrc ? (
-                            <img
-                              src={imageSrc}
-                              alt={
-                                image.alt_text ||
-                                name ||
-                                "Product image"
-                              }
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-xs text-gray-400">
-                              Image unavailable
-                            </div>
-                          )}
-
-                          {primary && (
-                            <span className="absolute left-2 top-2 rounded-full bg-gray-900 px-2.5 py-1 text-xs font-medium text-white">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-
-                        <div className="space-y-2 p-3">
-                          {!primary && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPrimaryImage(
-                                  image.id,
-                                )
-                              }
-                              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
-                            >
-                              <Star
-                                size={14}
-                              />
-
-                              Set Primary
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              deleteImage(
-                                image.id,
-                              )
-                            }
-                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-50"
-                          >
-                            <Trash2
-                              size={14}
-                            />
-
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* ---------------------------------------------------------------- */}
-            {/* PRICING                                                          */}
-            {/* ---------------------------------------------------------------- */}
-
-            <section className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="font-semibold text-gray-900">
-                Base Pricing
-              </h2>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Default product price. Individual
-                variants can have their own price.
-              </p>
 
               <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
                 {/* MRP */}
@@ -1186,7 +771,7 @@ export default function EditProductPage() {
                   </label>
 
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                       ₹
                     </span>
 
@@ -1196,12 +781,19 @@ export default function EditProductPage() {
                       step="0.01"
                       required
                       value={mrp}
-                      onChange={(event) =>
-                        setMrp(
-                          event.target.value,
-                        )
-                      }
-                      className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-gray-600"
+                      onChange={(event) => setMrp(event.target.value)}
+                      className="
+                        w-full
+                        rounded-xl
+                        border
+                        border-gray-300
+                        py-2.5
+                        pl-9
+                        pr-4
+                        text-sm
+                        outline-none
+                        focus:border-[#a8822b]
+                      "
                     />
                   </div>
                 </div>
@@ -1214,7 +806,7 @@ export default function EditProductPage() {
                   </label>
 
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                       ₹
                     </span>
 
@@ -1224,28 +816,43 @@ export default function EditProductPage() {
                       step="0.01"
                       required
                       value={sellingPrice}
-                      onChange={(event) =>
-                        setSellingPrice(
-                          event.target.value,
-                        )
-                      }
-                      className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-gray-600"
+                      onChange={(event) => setSellingPrice(event.target.value)}
+                      className="
+                        w-full
+                        rounded-xl
+                        border
+                        border-gray-300
+                        py-2.5
+                        pl-9
+                        pr-4
+                        text-sm
+                        outline-none
+                        focus:border-[#a8822b]
+                      "
                     />
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* PRODUCT DETAILS                                                  */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                PRODUCT DETAILS
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="font-semibold text-gray-900">
-                Product Details
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)] sm:p-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#aa852e]">
+                  Identification
+                </p>
+
+                <h2 className="mt-2 text-lg font-semibold text-gray-900">
+                  Product Details
+                </h2>
+              </div>
 
               <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                {/* Base SKU */}
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Base SKU
@@ -1254,14 +861,22 @@ export default function EditProductPage() {
                   <input
                     type="text"
                     value={sku}
-                    onChange={(event) =>
-                      setSku(
-                        event.target.value,
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                    onChange={(event) => setSku(event.target.value)}
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      focus:border-[#a8822b]
+                    "
                   />
                 </div>
+
+                {/* Set Quantity */}
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -1272,27 +887,41 @@ export default function EditProductPage() {
                     type="number"
                     min="1"
                     value={setQuantity}
-                    onChange={(event) =>
-                      setSetQuantity(
-                        event.target.value,
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                    onChange={(event) => setSetQuantity(event.target.value)}
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      focus:border-[#a8822b]
+                    "
                   />
                 </div>
               </div>
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* SEO                                                              */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                SEO
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="font-semibold text-gray-900">
-                Search Engine Listing
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)] sm:p-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#aa852e]">
+                  Search visibility
+                </p>
+
+                <h2 className="mt-2 text-lg font-semibold text-gray-900">
+                  Search Engine Listing
+                </h2>
+              </div>
 
               <div className="mt-5 space-y-5">
+                {/* SEO Title */}
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     SEO Title
@@ -1301,14 +930,22 @@ export default function EditProductPage() {
                   <input
                     type="text"
                     value={seoTitle}
-                    onChange={(event) =>
-                      setSeoTitle(
-                        event.target.value,
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                    onChange={(event) => setSeoTitle(event.target.value)}
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      focus:border-[#a8822b]
+                    "
                   />
                 </div>
+
+                {/* SEO Description */}
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -1318,118 +955,124 @@ export default function EditProductPage() {
                   <textarea
                     rows={4}
                     value={seoDescription}
-                    onChange={(event) =>
-                      setSeoDescription(
-                        event.target.value,
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                    onChange={(event) => setSeoDescription(event.target.value)}
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      focus:border-[#a8822b]
+                    "
                   />
                 </div>
               </div>
             </section>
           </div>
 
-          {/* ================================================================= */}
-          {/* RIGHT COLUMN                                                      */}
-          {/* ================================================================= */}
+          {/* ============================================================
+              RIGHT COLUMN
+          ============================================================ */}
 
           <div className="space-y-6">
-            {/* ---------------------------------------------------------------- */}
-            {/* STATUS                                                           */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                STATUS
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="font-semibold text-gray-900">
-                Status
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)]">
+              <h2 className="font-semibold text-gray-900">Status</h2>
 
               <select
                 value={status}
-                onChange={(event) =>
-                  setStatus(
-                    event.target.value,
-                  )
-                }
-                className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                onChange={(event) => setStatus(event.target.value)}
+                className="
+                  mt-4
+                  w-full
+                  rounded-xl
+                  border
+                  border-gray-300
+                  bg-white
+                  px-4
+                  py-2.5
+                  text-sm
+                  outline-none
+                  focus:border-[#a8822b]
+                "
               >
-                <option value="active">
-                  Active
-                </option>
+                <option value="active">Active</option>
 
-                <option value="inactive">
-                  Inactive
-                </option>
+                <option value="inactive">Inactive</option>
               </select>
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* CATEGORY                                                         */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                CATEGORY
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="font-semibold text-gray-900">
-                Category
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)]">
+              <h2 className="font-semibold text-gray-900">Category</h2>
 
               <select
                 value={categoryId}
-                onChange={(event) =>
-                  setCategoryId(
-                    event.target.value,
-                  )
-                }
-                className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                onChange={(event) => setCategoryId(event.target.value)}
+                className="
+                  mt-4
+                  w-full
+                  rounded-xl
+                  border
+                  border-gray-300
+                  bg-white
+                  px-4
+                  py-2.5
+                  text-sm
+                  outline-none
+                  focus:border-[#a8822b]
+                "
               >
-                <option value="">
-                  Select category
-                </option>
+                <option value="">Select category</option>
 
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={category.id}
-                      value={category.id}
-                    >
-                      {category.name}
-                    </option>
-                  ),
-                )}
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
               </select>
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* MATERIAL                                                         */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                MATERIAL
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="font-semibold text-gray-900">
-                Material
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)]">
+              <h2 className="font-semibold text-gray-900">Material</h2>
 
               <select
                 value={materialId}
-                onChange={(event) =>
-                  setMaterialId(
-                    event.target.value,
-                  )
-                }
-                className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-gray-600"
+                onChange={(event) => setMaterialId(event.target.value)}
+                className="
+                  mt-4
+                  w-full
+                  rounded-xl
+                  border
+                  border-gray-300
+                  bg-white
+                  px-4
+                  py-2.5
+                  text-sm
+                  outline-none
+                  focus:border-[#a8822b]
+                "
               >
-                <option value="">
-                  Select material
-                </option>
+                <option value="">Select material</option>
 
-                {materials.map(
-                  (material) => (
-                    <option
-                      key={material.id}
-                      value={material.id}
-                    >
-                      {material.name}
-                    </option>
-                  ),
-                )}
+                {materials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {material.name}
+                  </option>
+                ))}
               </select>
 
               {materials.length === 0 && (
@@ -1439,105 +1082,127 @@ export default function EditProductPage() {
               )}
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* PRODUCT LABELS                                                   */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                PRODUCT LABELS
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="font-semibold text-gray-900">
-                Product Labels
-              </h2>
+            <section className="rounded-2xl border border-[#e8e1da] bg-white p-5 shadow-[0_10px_35px_rgba(45,27,20,.04)]">
+              <h2 className="font-semibold text-gray-900">Product Labels</h2>
 
               <div className="mt-4 space-y-4">
                 {/* Featured */}
 
-                <label className="flex cursor-pointer items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 px-3 py-3 transition hover:bg-gray-50">
                   <input
                     type="checkbox"
                     checked={featured}
-                    onChange={(event) =>
-                      setFeatured(
-                        event.target.checked,
-                      )
-                    }
-                    className="h-4 w-4"
+                    onChange={(event) => setFeatured(event.target.checked)}
+                    className="h-4 w-4 accent-[#650b12]"
                   />
 
-                  <span className="text-sm text-gray-700">
-                    Featured Product
-                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      Featured Product
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      Highlight this product in featured sections.
+                    </p>
+                  </div>
                 </label>
 
                 {/* Best Seller */}
 
-                <label className="flex cursor-pointer items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 px-3 py-3 transition hover:bg-gray-50">
                   <input
                     type="checkbox"
                     checked={bestSeller}
-                    onChange={(event) =>
-                      setBestSeller(
-                        event.target.checked,
-                      )
-                    }
-                    className="h-4 w-4"
+                    onChange={(event) => setBestSeller(event.target.checked)}
+                    className="h-4 w-4 accent-[#650b12]"
                   />
 
-                  <span className="text-sm text-gray-700">
-                    Best Seller
-                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      Best Seller
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      Show in bestseller collections.
+                    </p>
+                  </div>
                 </label>
 
                 {/* New Arrival */}
 
-                <label className="flex cursor-pointer items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 px-3 py-3 transition hover:bg-gray-50">
                   <input
                     type="checkbox"
                     checked={newArrival}
-                    onChange={(event) =>
-                      setNewArrival(
-                        event.target.checked,
-                      )
-                    }
-                    className="h-4 w-4"
+                    onChange={(event) => setNewArrival(event.target.checked)}
+                    className="h-4 w-4 accent-[#650b12]"
                   />
 
-                  <span className="text-sm text-gray-700">
-                    New Arrival
-                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      New Arrival
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      Display in new arrival sections.
+                    </p>
+                  </div>
                 </label>
               </div>
             </section>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* MEDIA                                                            */}
-            {/* ---------------------------------------------------------------- */}
+            {/* ==========================================================
+                IMAGE EXPLANATION
+            ========================================================== */}
 
-            <section className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="font-semibold text-gray-900">
-                Media
-              </h2>
+            <section className="rounded-2xl border border-[#eadcb7] bg-[#fffaf0] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#9b7825]">
+                Image Setup
+              </p>
 
-              <div className="mt-4">
-                <p className="text-3xl font-semibold text-gray-900">
-                  {images.length}
-                </p>
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Upload normal color images under Product Images. If the product
+                also has Design Options, upload design-specific color images
+                inside each design below.
+              </p>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  Product images uploaded
-                </p>
+              <div className="mt-4 space-y-2 text-xs text-gray-500">
+                <p>• Pink → Pink photos</p>
+
+                <p>• Black → Black photos</p>
+
+                <p>• Deep Maroon → Maroon photos</p>
+
+                <p>• Square + Maroon → upload inside Square design</p>
               </div>
             </section>
           </div>
         </div>
 
-        {/* ==================================================================== */}
-        {/* PRODUCT SAVE ACTIONS                                                 */}
-        {/* ==================================================================== */}
+        {/* ================================================================
+            FORM ACTIONS
+        ================================================================ */}
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
           <Link
             href="/admin/products"
-            className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="
+              rounded-xl
+              border
+              border-gray-300
+              bg-white
+              px-5
+              py-2.5
+              text-sm
+              font-medium
+              text-gray-700
+              transition
+              hover:bg-gray-50
+            "
           >
             Cancel
           </Link>
@@ -1545,25 +1210,70 @@ export default function EditProductPage() {
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+            className="
+              inline-flex
+              items-center
+              gap-2
+              rounded-xl
+              bg-[#650b12]
+              px-5
+              py-2.5
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-[#7b0d17]
+              disabled:cursor-not-allowed
+              disabled:opacity-50
+            "
           >
-            <Save size={18} />
+            <Save size={17} />
 
-            {saving
-              ? "Updating..."
-              : "Update product"}
+            {saving ? "Updating..." : "Update product"}
           </button>
         </div>
       </form>
 
-      {/* ==================================================================== */}
-      {/* VARIANTS                                                             */}
-      {/* ==================================================================== */}
+      {/* ================================================================
+          VARIANTS
+      ================================================================
+      
+          Your existing centralized Variant manager stays separate from
+          the basic product form.
 
-      <div className="mt-6">
-        <ProductVariants
-          productId={productId}
-        />
+          It manages:
+          
+          Size
+          Color
+          SKU
+          MRP
+          Selling Price
+          Quantity
+          Low Stock Limit
+      
+      ================================================================ */}
+
+      <div className="mt-8">
+        <ProductVariants productId={productId} />
+      </div>
+
+      {/* ================================================================
+          OPTIONAL DESIGN OPTIONS
+      ================================================================
+      
+          Design Options are product-specific and optional.
+
+          Each design can now contain:
+          
+          General images
+          Pink images
+          Black images
+          Deep Maroon images
+      
+      ================================================================ */}
+
+      <div className="mt-8">
+        <ProductDesignOptions productId={Number(productId)} />
       </div>
     </div>
   );

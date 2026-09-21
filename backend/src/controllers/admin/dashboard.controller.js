@@ -32,6 +32,24 @@ export async function index(req, res) {
     FROM orders
   `);
 
+  const activeCartsResult = await query(`
+    SELECT COUNT(*) AS count
+    FROM carts
+    WHERE status='active'
+  `);
+
+  const cartItemsResult = await query(`
+    SELECT COALESCE(SUM(ci.quantity),0) AS count
+    FROM cart_items ci
+    JOIN carts c ON c.id=ci.cart_id
+    WHERE c.status='active'
+  `);
+
+  const wishlistItemsResult = await query(`
+    SELECT COUNT(*) AS count
+    FROM wishlist_items
+  `);
+
   /*
    * Revenue:
    * Only paid orders.
@@ -363,6 +381,12 @@ export async function index(req, res) {
         active_customers: Number(
           activeCustomersResult[0]?.count || 0
         ),
+
+        active_carts: Number(activeCartsResult[0]?.count || 0),
+
+        cart_items: Number(cartItemsResult[0]?.count || 0),
+
+        wishlist_items: Number(wishlistItemsResult[0]?.count || 0),
 
         low_stock_count: lowStockItems.length,
 

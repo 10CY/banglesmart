@@ -1,57 +1,54 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
+
 import { useParams, useRouter } from "next/navigation";
 
-import {
-  ArrowLeft,
-  Heart,
-  Minus,
-  Plus,
-  ShoppingBag,
-  Star,
-} from "lucide-react";
+import { ArrowLeft, Heart, Minus, Plus, ShoppingBag, Star } from "lucide-react";
 
-
-import { customerApiFetch } from "@/lib/customerApi";
 import { storeApiFetch } from "@/lib/storeApi";
+import { customerApiFetch } from "@/lib/customerApi";
 
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductDescription from "@/components/product/ProductDescription";
 import ProductVariants from "@/components/product/ProductVariants";
+import DesignSelector from "@/components/product/DesignSelector";
 import RecommendedProducts from "@/components/product/RecommendedProducts";
 import ProductBadges from "@/components/product/ProductBadges";
+
 import ProductReviews from "@/components/store/reviews/ProductReviews";
 
-import type {
-  MyReview,
-} from "@/components/store/reviews/ReviewForm";
+import { addCartItem } from "@/features/cart/cart.api";
+
+import {
+  addWishlistItem,
+  checkWishlist,
+  removeWishlistItem,
+} from "@/features/wishlist/wishlist.api";
+
+import { useCommerce } from "@/features/commerce/CommerceProvider";
+
+import type { MyReview } from "@/components/store/reviews/ReviewForm";
+
+import type { ProductReview } from "@/components/store/reviews/ReviewList";
 
 import type {
-  Product,
-  Size,
   Color,
+  Product,
+  ProductImage,
+  Size,
   Variant,
 } from "@/components/product/product.types";
 
-import type {
-  ProductReview,
-} from "@/components/store/reviews/ReviewList";
+/*
+|--------------------------------------------------------------------------
+| Money
+|--------------------------------------------------------------------------
+*/
 
-/* ==========================================================================
-   HELPERS
-========================================================================== */
-
-function money(
-  value: string | number | null | undefined
-) {
+function money(value: string | number | null | undefined) {
   const amount = Number(value || 0);
 
   return amount.toLocaleString("en-IN", {
@@ -61,93 +58,176 @@ function money(
   });
 }
 
-/* ==========================================================================
-   PAGE
-========================================================================== */
+/*
+|--------------------------------------------------------------------------
+| Sort Images
+|--------------------------------------------------------------------------
+*/
+
+function sortImages(images: ProductImage[]) {
+  return [...images].sort((a, b) => {
+    const primaryA = a.is_primary ? 1 : 0;
+
+    const primaryB = b.is_primary ? 1 : 0;
+
+    if (primaryA !== primaryB) {
+      return primaryB - primaryA;
+    }
+
+    const orderA = Number(a.sort_order || 0);
+
+    const orderB = Number(b.sort_order || 0);
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    return Number(a.id || 0) - Number(b.id || 0);
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Product Detail Page
+|--------------------------------------------------------------------------
+*/
 
 export default function ProductDetailPage() {
   const params = useParams();
 
+  const router = useRouter();
+
+  const {
+    requireLogin: requireCustomerLogin,
+
+    setCartCount,
+
+    setWishlistCount,
+  } = useCommerce();
+
   const slug = String(params.slug || "");
 
-  /* -----------------------------------------------------------------------
-     PRODUCT
-  ----------------------------------------------------------------------- */
+  /*
+  |--------------------------------------------------------------------------
+  | Product
+  |--------------------------------------------------------------------------
+  */
 
-  const [product, setProduct] =
-    useState<Product | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
 
-  /* -----------------------------------------------------------------------
-     VARIANT
-  ----------------------------------------------------------------------- */
+  /*
+  |--------------------------------------------------------------------------
+  | Variant Selection
+  |--------------------------------------------------------------------------
+  |
+  | IMPORTANT:
+  |
+  | Nothing is automatically selected.
+  |
+  */
 
-  const [selectedVariant, setSelectedVariant] =
-    useState<Variant | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
 
-  const [selectedSizeId, setSelectedSizeId] =
-    useState<number | null>(null);
+  const [selectedSizeId, setSelectedSizeId] = useState<number | null>(null);
 
-  const [selectedColorId, setSelectedColorId] =
-    useState<number | null>(null);
+  const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
 
-  const [selectedImage, setSelectedImage] =
-    useState(0);
+  /*
+  |--------------------------------------------------------------------------
+  | Design Selection
+  |--------------------------------------------------------------------------
+  |
+  | Also not selected automatically.
+  |
+  */
 
-  /* -----------------------------------------------------------------------
-     CART
-  ----------------------------------------------------------------------- */
+  const [selectedDesignId, setSelectedDesignId] = useState<number | null>(null);
 
-  const [quantity, setQuantity] =
-    useState(1);
+  /*
+  |--------------------------------------------------------------------------
+  | Gallery
+  |--------------------------------------------------------------------------
+  */
 
-  const [adding, setAdding] =
-    useState(false);
+  const [selectedImage, setSelectedImage] = useState(0);
 
-  const [message, setMessage] =
-    useState("");
+  /*
+  |--------------------------------------------------------------------------
+  | Customer Gallery Interaction
+  |--------------------------------------------------------------------------
+  |
+  | false:
+  |
+  | Page just opened.
+  | General image gets priority.
+  |
+  | true:
+  |
+  | Customer selected size/color/design.
+  |
+  */
 
-  /* -----------------------------------------------------------------------
-     WISHLIST
-  ----------------------------------------------------------------------- */
+  const [gallerySelectionStarted, setGallerySelectionStarted] = useState(false);
 
-  const [wishlist, setWishlist] =
-    useState(false);
+  /*
+  |--------------------------------------------------------------------------
+  | Quantity / Cart
+  |--------------------------------------------------------------------------
+  */
 
-  /* -----------------------------------------------------------------------
-     REVIEWS
-  ----------------------------------------------------------------------- */
+  const [quantity, setQuantity] = useState(1);
 
-  const [reviewRating, setReviewRating] =
-    useState(0);
+  const [addingToCart, setAddingToCart] = useState(false);
 
-  const [reviewTitle, setReviewTitle] =
-    useState("");
+  const [buyingNow, setBuyingNow] = useState(false);
 
-  const [reviewComment, setReviewComment] =
-    useState("");
+  const [message, setMessage] = useState("");
 
-  const [reviewSubmitting, setReviewSubmitting] =
-    useState(false);
+  /*
+  |--------------------------------------------------------------------------
+  | Wishlist
+  |--------------------------------------------------------------------------
+  */
 
-  const [reviewMessage, setReviewMessage] =
-    useState("");
+  const [wishlist, setWishlist] = useState(false);
 
-  const [myReview, setMyReview] =
-    useState<MyReview | null>(null);
+  const [wishlistItemId, setWishlistItemId] = useState<number | null>(null);
 
-  /* ==========================================================================
-     LOAD PRODUCT
-  ========================================================================== */
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reviews
+  |--------------------------------------------------------------------------
+  */
+
+  const [reviewRating, setReviewRating] = useState(0);
+
+  const [reviewTitle, setReviewTitle] = useState("");
+
+  const [reviewComment, setReviewComment] = useState("");
+
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const [reviewMessage, setReviewMessage] = useState("");
+
+  const [myReview, setMyReview] = useState<MyReview | null>(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Load Product
+  |--------------------------------------------------------------------------
+  */
 
   const loadProduct = useCallback(
     async (showLoader = true) => {
-      if (!slug) return;
+      if (!slug) {
+        return;
+      }
 
       try {
         if (showLoader) {
@@ -156,106 +236,79 @@ export default function ProductDetailPage() {
 
         setError("");
 
-        const response =
-          await storeApiFetch(
-            `/store/products/${encodeURIComponent(
-              slug
-            )}`
-          );
+        const response = await storeApiFetch(
+          `/store/products/${encodeURIComponent(slug)}`,
+        );
 
-        const json =
-          await response.json();
+        const json = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            json?.message ||
-              "Unable to load product."
-          );
+          throw new Error(json?.message || "Unable to load product.");
         }
 
-        const loadedProduct =
-          json?.data ||
-          json?.product ||
-          null;
+        const loadedProduct: Product | null =
+          json?.data || json?.product || null;
 
         if (!loadedProduct) {
-          throw new Error(
-            "Product not found."
-          );
+          throw new Error("Product not found.");
         }
 
-        setProduct(
-          loadedProduct as Product
-        );
-
-        /* ---------------------------------------------------------------
-           VARIANTS
-        --------------------------------------------------------------- */
-
-        const variants: Variant[] =
-          Array.isArray(
-            loadedProduct.variants
-          )
-            ? loadedProduct.variants
-            : [];
-
-        const firstVariant =
-          variants.find(
-            (variant: Variant) =>
-              variant.status ===
-              "active"
-          ) ||
-          variants[0] ||
-          null;
-
-        setSelectedVariant(
-          firstVariant
-        );
-
-        if (firstVariant) {
-          setSelectedSizeId(
-            firstVariant.size_id ||
-              null
-          );
-
-          setSelectedColorId(
-            firstVariant.color_id ||
-              null
-          );
-        } else {
-          setSelectedSizeId(null);
-          setSelectedColorId(null);
-        }
-
-        /* ---------------------------------------------------------------
-           REVIEWS
-        --------------------------------------------------------------- */
+        setProduct(loadedProduct);
 
         /*
-         * If the API sends the user's own review separately,
-         * preserve it.
-         */
+          |--------------------------------------------------------------------------
+          | IMPORTANT
+          |--------------------------------------------------------------------------
+          |
+          | Do NOT automatically select:
+          |
+          | Size
+          | Color
+          | Variant
+          | Design
+          |
+          | This prevents Light Pink / first size appearing active.
+          |
+          */
+
+        setSelectedVariant(null);
+
+        setSelectedSizeId(null);
+
+        setSelectedColorId(null);
+
+        setSelectedDesignId(null);
+
+        /*
+          |--------------------------------------------------------------------------
+          | Gallery Initial State
+          |--------------------------------------------------------------------------
+          */
+
+        setSelectedImage(0);
+
+        setGallerySelectionStarted(false);
+
+        setQuantity(1);
+
+        setMessage("");
+
+        /*
+          |--------------------------------------------------------------------------
+          | My Review
+          |--------------------------------------------------------------------------
+          */
+
         if (json?.myReview) {
-          setMyReview(
-            json.myReview as MyReview
-          );
-        } else if (
-          json?.data?.myReview
-        ) {
-          setMyReview(
-            json.data.myReview as MyReview
-          );
+          setMyReview(json.myReview);
+        } else if (json?.data?.myReview) {
+          setMyReview(json.data.myReview);
         }
       } catch (err) {
-        console.error(
-          "Product loading error:",
-          err
-        );
+        console.error("Product loading error:", err);
 
         setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load product."
+          err instanceof Error ? err.message : "Unable to load product.",
         );
       } finally {
         if (showLoader) {
@@ -263,293 +316,979 @@ export default function ProductDetailPage() {
         }
       }
     },
-    [slug]
+    [slug],
   );
 
   useEffect(() => {
     void loadProduct(true);
   }, [loadProduct]);
 
-  /* ==========================================================================
-     PRODUCT VALUES
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Wishlist Status
+  |--------------------------------------------------------------------------
+  */
 
-  const price =
-    selectedVariant
-      ? selectedVariant.selling_price
-      : product?.selling_price || "0";
+  useEffect(() => {
+    if (!product?.id || typeof window === "undefined") {
+      return;
+    }
 
-  const mrp =
-    selectedVariant
-      ? selectedVariant.mrp
-      : product?.mrp || "0";
+    const token = localStorage.getItem("customer_token");
+
+    if (!token) {
+      setWishlist(false);
+
+      setWishlistItemId(null);
+
+      return;
+    }
+
+    void checkWishlist(product.id)
+      .then((data) => {
+        setWishlist(Boolean(data.wishlisted));
+
+        setWishlistItemId(
+          data.wishlist_item_id ? Number(data.wishlist_item_id) : null,
+        );
+      })
+      .catch(() => {
+        /*
+        | Wishlist check error should not
+        | prevent product page rendering.
+        */
+      });
+  }, [product?.id]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Active Designs
+  |--------------------------------------------------------------------------
+  */
+
+  const activeDesigns = useMemo(
+    () =>
+      (product?.design_options || [])
+        .filter((design) => design.status !== "inactive")
+        .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    [product],
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Selected Design
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedDesign = useMemo(
+    () =>
+      activeDesigns.find(
+        (design) => Number(design.id) === Number(selectedDesignId),
+      ) || null,
+    [activeDesigns, selectedDesignId],
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Initial Fallback Variant
+  |--------------------------------------------------------------------------
+  |
+  | This does NOT make the variant active.
+  |
+  | It is used only when:
+  |
+  | General images do not exist.
+  |
+  | Then we show images related to the first
+  | available variant as a visual fallback.
+  |
+  */
+
+  const initialFallbackVariant = useMemo(() => {
+    if (!product) {
+      return null;
+    }
+
+    const variants = product.variants || [];
+
+    const inStock = variants.find((variant) => {
+      if (variant.status !== "active") {
+        return false;
+      }
+
+      const available =
+        variant.inventory?.available_quantity ??
+        Math.max(
+          0,
+
+          Number(variant.inventory?.quantity || 0) -
+            Number(variant.inventory?.reserved_quantity || 0),
+        );
+
+      return available > 0;
+    });
+
+    if (inStock) {
+      return inStock;
+    }
+
+    return (
+      variants.find((variant) => variant.status === "active") ||
+      variants[0] ||
+      null
+    );
+  }, [product]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Gallery Images
+  |--------------------------------------------------------------------------
+  |
+  | PAGE OPEN:
+  |
+  | 1. General product images
+  |
+  | If General doesn't exist:
+  |
+  | 2. First available variant's color images
+  | 3. Any product images
+  | 4. Any design images
+  |
+  |--------------------------------------------------------------------------
+  |
+  | AFTER CUSTOMER SELECTION:
+  |
+  | 1. Selected Design + Selected Color
+  | 2. Selected Color Product Images
+  | 3. Selected Design General Images
+  | 4. General Product Images
+  | 5. Any Selected Design Images
+  | 6. Any Product Images
+  |
+  */
+
+  const galleryImages = useMemo<ProductImage[]>(() => {
+    if (!product) {
+      return [];
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | Product Images
+      |--------------------------------------------------------------------------
+      */
+
+    const productImages = Array.isArray(product.images) ? product.images : [];
+
+    /*
+      |--------------------------------------------------------------------------
+      | Selected Design Images
+      |--------------------------------------------------------------------------
+      */
+
+    const designImages = Array.isArray(selectedDesign?.images)
+      ? selectedDesign.images
+      : [];
+
+    /*
+      |--------------------------------------------------------------------------
+      | General Images
+      |--------------------------------------------------------------------------
+      */
+
+    const generalImages = (rows: ProductImage[]) =>
+      rows.filter(
+        (image) => image.color_id === null || image.color_id === undefined,
+      );
+
+    /*
+      |--------------------------------------------------------------------------
+      | Images For Color
+      |--------------------------------------------------------------------------
+      */
+
+    const imagesForColor = (rows: ProductImage[], colorId: number | null) => {
+      if (colorId === null) {
+        return [];
+      }
+
+      return rows.filter(
+        (image) =>
+          image.color_id !== null &&
+          image.color_id !== undefined &&
+          Number(image.color_id) === Number(colorId),
+      );
+    };
+
+    /*
+      |--------------------------------------------------------------------------
+      | General Groups
+      |--------------------------------------------------------------------------
+      */
+
+    const productGeneral = sortImages(generalImages(productImages));
+
+    const designGeneral = sortImages(generalImages(designImages));
+
+    /*
+      |--------------------------------------------------------------------------
+      | Initial Page Load
+      |--------------------------------------------------------------------------
+      */
+
+    if (!gallerySelectionStarted) {
+      /*
+        |--------------------------------------------------------------------------
+        | 1. GENERAL PRODUCT IMAGES
+        |--------------------------------------------------------------------------
+        */
+
+      if (productGeneral.length > 0) {
+        return productGeneral;
+      }
+
+      /*
+        |--------------------------------------------------------------------------
+        | 2. FALLBACK VARIANT COLOR
+        |--------------------------------------------------------------------------
+        |
+        | Example:
+        |
+        | No General image exists.
+        |
+        | First available variant:
+        | Size 2.4 + Light Pink
+        |
+        | Show Light Pink images,
+        | but DO NOT visually select Light Pink.
+        |
+        */
+
+      const fallbackColorId = initialFallbackVariant?.color_id
+        ? Number(initialFallbackVariant.color_id)
+        : null;
+
+      const fallbackColorImages = sortImages(
+        imagesForColor(productImages, fallbackColorId),
+      );
+
+      if (fallbackColorImages.length > 0) {
+        return fallbackColorImages;
+      }
+
+      /*
+        |--------------------------------------------------------------------------
+        | 3. ANY PRODUCT IMAGE
+        |--------------------------------------------------------------------------
+        */
+
+      if (productImages.length > 0) {
+        return sortImages(productImages);
+      }
+
+      /*
+        |--------------------------------------------------------------------------
+        | 4. ANY DESIGN IMAGE
+        |--------------------------------------------------------------------------
+        */
+
+      const allDesignImages = activeDesigns.flatMap((design) =>
+        Array.isArray(design.images) ? design.images : [],
+      );
+
+      return sortImages(allDesignImages);
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | Customer Selection Mode
+      |--------------------------------------------------------------------------
+      */
+
+    const selectedProductColor = sortImages(
+      imagesForColor(productImages, selectedColorId),
+    );
+
+    const selectedDesignColor = sortImages(
+      imagesForColor(designImages, selectedColorId),
+    );
+
+    /*
+      |--------------------------------------------------------------------------
+      | 1. DESIGN + COLOR
+      |--------------------------------------------------------------------------
+      */
+
+    if (
+      selectedDesign &&
+      selectedColorId !== null &&
+      selectedDesignColor.length > 0
+    ) {
+      return selectedDesignColor;
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | 2. PRODUCT + COLOR
+      |--------------------------------------------------------------------------
+      */
+
+    if (selectedColorId !== null && selectedProductColor.length > 0) {
+      return selectedProductColor;
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | 3. GENERAL DESIGN IMAGES
+      |--------------------------------------------------------------------------
+      */
+
+    if (selectedDesign && designGeneral.length > 0) {
+      return designGeneral;
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | 4. GENERAL PRODUCT IMAGES
+      |--------------------------------------------------------------------------
+      */
+
+    if (productGeneral.length > 0) {
+      return productGeneral;
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | 5. ANY SELECTED DESIGN IMAGE
+      |--------------------------------------------------------------------------
+      */
+
+    if (selectedDesign && designImages.length > 0) {
+      return sortImages(designImages);
+    }
+
+    /*
+      |--------------------------------------------------------------------------
+      | 6. ANY PRODUCT IMAGE
+      |--------------------------------------------------------------------------
+      */
+
+    return sortImages(productImages);
+  }, [
+    product,
+    activeDesigns,
+    selectedDesign,
+    selectedColorId,
+    gallerySelectionStarted,
+    initialFallbackVariant,
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reset Main Gallery Image
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [selectedColorId, selectedDesignId, gallerySelectionStarted]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Sizes
+  |--------------------------------------------------------------------------
+  */
+
+  const sizes = useMemo<Size[]>(() => {
+    if (!product) {
+      return [];
+    }
+
+    const map = new Map<number, Size>();
+
+    for (const variant of product.variants || []) {
+      if (variant.size) {
+        map.set(
+          Number(variant.size.id),
+
+          variant.size,
+        );
+      }
+    }
+
+    return Array.from(map.values());
+  }, [product]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Colors
+  |--------------------------------------------------------------------------
+  */
+
+  const colors = useMemo<Color[]>(() => {
+    if (!product) {
+      return [];
+    }
+
+    const map = new Map<number, Color>();
+
+    for (const variant of product.variants || []) {
+      if (variant.color) {
+        map.set(
+          Number(variant.color.id),
+
+          variant.color,
+        );
+      }
+    }
+
+    return Array.from(map.values());
+  }, [product]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Variant Stock
+  |--------------------------------------------------------------------------
+  */
+
+  function variantStock(variant: Variant) {
+    return (
+      variant.inventory?.available_quantity ??
+      Math.max(
+        0,
+
+        Number(variant.inventory?.quantity || 0) -
+          Number(variant.inventory?.reserved_quantity || 0),
+      )
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Size Has Stock
+  |--------------------------------------------------------------------------
+  */
+
+  function sizeHasStock(sizeId: number) {
+    if (!product) {
+      return false;
+    }
+
+    return product.variants.some(
+      (variant) =>
+        variant.status === "active" &&
+        Number(variant.size_id) === Number(sizeId) &&
+        variantStock(variant) > 0,
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Color Has Stock
+  |--------------------------------------------------------------------------
+  */
+
+  function colorHasStock(colorId: number) {
+    if (!product) {
+      return false;
+    }
+
+    return product.variants.some(
+      (variant) =>
+        variant.status === "active" &&
+        Number(variant.color_id) === Number(colorId) &&
+        variantStock(variant) > 0,
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Resolve Exact Variant
+  |--------------------------------------------------------------------------
+  |
+  | Exact variant only exists when BOTH:
+  |
+  | Size
+  | Color
+  |
+  | are selected.
+  |
+  */
+
+  function findExactVariant(
+    sizeId: number | null,
+
+    colorId: number | null,
+  ) {
+    if (!product || sizeId === null || colorId === null) {
+      return null;
+    }
+
+    return (
+      product.variants.find(
+        (variant) =>
+          variant.status === "active" &&
+          Number(variant.size_id) === Number(sizeId) &&
+          Number(variant.color_id) === Number(colorId),
+      ) || null
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Size Change
+  |--------------------------------------------------------------------------
+  |
+  | Selecting size does NOT automatically
+  | select a color.
+  |
+  */
+
+  function onSizeChange(sizeId: number) {
+    if (!product) {
+      return;
+    }
+
+    setMessage("");
+
+    setGallerySelectionStarted(true);
+
+    setSelectedSizeId(sizeId);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resolve only if color already selected
+    |--------------------------------------------------------------------------
+    */
+
+    const variant = findExactVariant(sizeId, selectedColorId);
+
+    setSelectedVariant(variant);
+
+    setQuantity(1);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invalid Existing Combination
+    |--------------------------------------------------------------------------
+    */
+
+    if (selectedColorId !== null && !variant) {
+      setMessage("This size is not available in the selected color.");
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Color Change
+  |--------------------------------------------------------------------------
+  |
+  | Selecting color immediately changes gallery.
+  |
+  | But variant is only resolved when size is also selected.
+  |
+  */
+
+  function onColorChange(colorId: number) {
+    if (!product) {
+      return;
+    }
+
+    setMessage("");
+
+    setGallerySelectionStarted(true);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Change Gallery Color
+    |--------------------------------------------------------------------------
+    */
+
+    setSelectedColorId(colorId);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resolve Exact Variant If Size Selected
+    |--------------------------------------------------------------------------
+    */
+
+    const variant = findExactVariant(selectedSizeId, colorId);
+
+    setSelectedVariant(variant);
+
+    setQuantity(1);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invalid Combination
+    |--------------------------------------------------------------------------
+    */
+
+    if (selectedSizeId !== null && !variant) {
+      setMessage("This color is not available in the selected size.");
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Design Change
+  |--------------------------------------------------------------------------
+  */
+
+  function onDesignChange(designId: number) {
+    setMessage("");
+
+    setGallerySelectionStarted(true);
+
+    setSelectedDesignId(designId);
+
+    setSelectedImage(0);
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Price
+  |--------------------------------------------------------------------------
+  |
+  | Before Size + Color selection:
+  |
+  | Show base product price.
+  |
+  */
+
+  const price = selectedVariant
+    ? selectedVariant.selling_price
+    : product?.selling_price || 0;
+
+  const mrp = selectedVariant ? selectedVariant.mrp : product?.mrp || 0;
 
   const discount =
     Number(mrp) > 0
       ? Math.max(
           0,
-          Math.round(
-            ((Number(mrp) -
-              Number(price)) /
-              Number(mrp)) *
-              100
-          )
+
+          Math.round(((Number(mrp) - Number(price)) / Number(mrp)) * 100),
         )
       : 0;
 
-  /* ==========================================================================
-     STOCK
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Stock
+  |--------------------------------------------------------------------------
+  */
 
-  const stock =
-    selectedVariant?.inventory
-      ?.quantity ?? 0;
+  const stock = selectedVariant ? variantStock(selectedVariant) : 0;
 
-  const outOfStock =
-    Boolean(
-      selectedVariant &&
-        stock <= 0
+  const outOfStock = Boolean(selectedVariant && stock <= 0);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Require Customer Login
+  |--------------------------------------------------------------------------
+  */
+
+  function requireLogin() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    const currentPath = window.location.pathname + window.location.search;
+
+    return requireCustomerLogin(
+      `/login?redirect=${encodeURIComponent(currentPath)}`,
     );
+  }
 
-  /* ==========================================================================
-     IMAGES
-  ========================================================================== */
+  /*
+|--------------------------------------------------------------------------
+| Validate Current Selection
+|--------------------------------------------------------------------------
+*/
 
-  const images = useMemo(() => {
-    if (!product) return [];
-
-    return Array.isArray(
-      product.images
-    )
-      ? product.images
-      : [];
-  }, [product]);
-
-  /* ==========================================================================
-     SIZES
-  ========================================================================== */
-
-  const sizes =
-    useMemo<Size[]>(() => {
-      if (!product) return [];
-
-      const map =
-        new Map<number, Size>();
-
-      for (const variant of
-        product.variants || []) {
-        if (variant.size) {
-          map.set(
-            Number(
-              variant.size.id
-            ),
-            variant.size
-          );
-        }
-      }
-
-      return Array.from(
-        map.values()
-      );
-    }, [product]);
-
-  /* ==========================================================================
-     COLORS
-  ========================================================================== */
-
-  const colors =
-    useMemo<Color[]>(() => {
-      if (!product) return [];
-
-      const map =
-        new Map<number, Color>();
-
-      for (const variant of
-        product.variants || []) {
-        if (variant.color) {
-          map.set(
-            Number(
-              variant.color.id
-            ),
-            variant.color
-          );
-        }
-      }
-
-      return Array.from(
-        map.values()
-      );
-    }, [product]);
-
-  /* ==========================================================================
-     SIZE STOCK
-  ========================================================================== */
-
-  const sizeHasStock = (
-    sizeId: number
-  ) => {
+  function validateSelection() {
     if (!product) {
       return false;
     }
 
-    return product.variants.some(
-      (variant) =>
-        Number(
-          variant.size_id
-        ) === Number(sizeId) &&
-        Number(
-          variant.inventory
-            ?.quantity || 0
-        ) > 0
-    );
-  };
+    if (selectedSizeId === null) {
+      setMessage("Please select a size.");
 
-  /* ==========================================================================
-     COLOR STOCK
-  ========================================================================== */
-
-  const colorHasStock = (
-    colorId: number
-  ) => {
-    if (!product) {
       return false;
     }
 
-    return product.variants.some(
-      (variant) =>
-        Number(
-          variant.color_id
-        ) === Number(colorId) &&
-        Number(
-          variant.inventory
-            ?.quantity || 0
-        ) > 0
-    );
-  };
+    if (selectedColorId === null) {
+      setMessage("Please select a color.");
 
-  /* ==========================================================================
-     SIZE CHANGE
-  ========================================================================== */
-
-  function onSizeChange(
-    sizeId: number
-  ) {
-    if (!product) return;
-
-    setSelectedSizeId(
-      sizeId
-    );
-
-    let matchingVariant =
-      product.variants.find(
-        (variant) =>
-          Number(
-            variant.size_id
-          ) === Number(sizeId) &&
-          (
-            selectedColorId === null ||
-            Number(
-              variant.color_id
-            ) ===
-              Number(
-                selectedColorId
-              )
-          )
-      );
-
-    /*
-     * If the selected size does not
-     * exist with the current color,
-     * select any variant for that size.
-     */
-    if (!matchingVariant) {
-      matchingVariant =
-        product.variants.find(
-          (variant) =>
-            Number(
-              variant.size_id
-            ) === Number(sizeId)
-        );
+      return false;
     }
 
-    if (matchingVariant) {
-      setSelectedVariant(
-        matchingVariant
-      );
+    if (!selectedVariant) {
+      setMessage("This size and color combination is not available.");
 
-      if (
-        matchingVariant.color_id
-      ) {
-        setSelectedColorId(
-          matchingVariant.color_id
-        );
-      }
+      return false;
+    }
+
+    if (activeDesigns.length > 0 && !selectedDesignId) {
+      setMessage("Please select a design.");
+
+      return false;
+    }
+
+    if (outOfStock) {
+      setMessage("This product is currently out of stock.");
+
+      return false;
+    }
+
+    if (quantity < 1 || quantity > stock) {
+      setMessage(`Only ${stock} item(s) available.`);
+
+      return false;
+    }
+
+    return true;
+  }
+
+  /*
+|--------------------------------------------------------------------------
+| ADD TO CART
+|--------------------------------------------------------------------------
+|
+| Add To Cart:
+|
+| ✓ Adds to normal cart
+| ✓ Updates cart count
+| ✓ Stays on PDP
+|
+|--------------------------------------------------------------------------
+*/
+
+  async function addToCart() {
+    if (!product || !validateSelection()) {
+      return;
+    }
+
+    /*
+  |--------------------------------------------------------------------------
+  | Login
+  |--------------------------------------------------------------------------
+  */
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+
+      setMessage("");
+
+      const cart = await addCartItem({
+        product_variant_id: selectedVariant!.id,
+
+        design_option_id: selectedDesignId,
+
+        quantity,
+      });
+
+      setCartCount(Number(cart.item_count || 0));
+
+      setMessage("Product added to bag successfully.");
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : "Unable to add product to cart.",
+      );
+    } finally {
+      setAddingToCart(false);
     }
   }
 
-  /* ==========================================================================
-     COLOR CHANGE
-  ========================================================================== */
+  /*
+|--------------------------------------------------------------------------
+| BUY NOW
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+|
+| Buy Now does NOT call addCartItem().
+|
+| It stores a temporary checkout selection in sessionStorage.
+|
+| This does NOT modify customer's normal shopping cart.
+|
+|--------------------------------------------------------------------------
+*/
 
-  function onColorChange(
-    colorId: number
-  ) {
-    if (!product) return;
-
-    setSelectedColorId(
-      colorId
-    );
-
-    let matchingVariant =
-      product.variants.find(
-        (variant) =>
-          Number(
-            variant.color_id
-          ) === Number(colorId) &&
-          (
-            selectedSizeId === null ||
-            Number(
-              variant.size_id
-            ) ===
-              Number(
-                selectedSizeId
-              )
-          )
-      );
-
-    /*
-     * If the selected color does not
-     * exist with the current size,
-     * select any variant for that color.
-     */
-    if (!matchingVariant) {
-      matchingVariant =
-        product.variants.find(
-          (variant) =>
-            Number(
-              variant.color_id
-            ) === Number(colorId)
-        );
+  async function buyNow() {
+    if (!product || !validateSelection()) {
+      return;
     }
 
-    if (matchingVariant) {
-      setSelectedVariant(
-        matchingVariant
+    /*
+  |--------------------------------------------------------------------------
+  | Login
+  |--------------------------------------------------------------------------
+  */
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      setBuyingNow(true);
+
+      setMessage("");
+
+      /*
+    |--------------------------------------------------------------------------
+    | Temporary Buy Now Checkout Data
+    |--------------------------------------------------------------------------
+    |
+    | Only IDs + quantity are important.
+    |
+    | Backend should still validate:
+    |
+    | product
+    | variant
+    | design
+    | stock
+    | price
+    |
+    | during checkout/order creation.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+      const buyNowPayload = {
+        product_id: product.id,
+
+        product_variant_id: selectedVariant!.id,
+
+        design_option_id: selectedDesignId,
+
+        quantity,
+
+        /*
+      |--------------------------------------------------------------------------
+      | Optional display information
+      |--------------------------------------------------------------------------
+      |
+      | Checkout can use this while loading.
+      |
+      */
+
+        product_name: product.name,
+
+        product_slug: product.slug,
+
+        size_id: selectedSizeId,
+
+        color_id: selectedColorId,
+
+        design_label: selectedDesign?.label || null,
+
+        created_at: Date.now(),
+      };
+
+      /*
+    |--------------------------------------------------------------------------
+    | sessionStorage
+    |--------------------------------------------------------------------------
+    |
+    | sessionStorage is better than localStorage here because Buy Now
+    | is temporary checkout state.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+      sessionStorage.setItem(
+        "banglesmart_buy_now",
+        JSON.stringify(buyNowPayload),
       );
 
-      if (
-        matchingVariant.size_id
-      ) {
-        setSelectedSizeId(
-          matchingVariant.size_id
-        );
-      }
+      /*
+    |--------------------------------------------------------------------------
+    | Go Directly To Buy Now Checkout
+    |--------------------------------------------------------------------------
+    */
+
+      router.push("/checkout?mode=buy-now");
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : "Unable to continue to checkout.",
+      );
+
+      setBuyingNow(false);
     }
   }
 
-  /* ==========================================================================
-     SUBMIT REVIEW
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Wishlist
+  |--------------------------------------------------------------------------
+  */
+
+  async function toggleWishlist() {
+    if (!product || wishlistLoading) {
+      return;
+    }
+
+    if (!requireLogin()) {
+      return;
+    }
+
+    try {
+      setWishlistLoading(true);
+
+      /*
+      |--------------------------------------------------------------------------
+      | Remove Wishlist
+      |--------------------------------------------------------------------------
+      */
+
+      if (wishlist && wishlistItemId) {
+        const data = await removeWishlistItem(wishlistItemId);
+
+        setWishlist(false);
+
+        setWishlistItemId(null);
+
+        setWishlistCount(Number(data.item_count || 0));
+
+        return;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Add Wishlist
+      |--------------------------------------------------------------------------
+      */
+
+      const data = await addWishlistItem(product.id);
+
+      const check = await checkWishlist(product.id);
+
+      setWishlist(Boolean(check.wishlisted));
+
+      setWishlistItemId(
+        check.wishlist_item_id ? Number(check.wishlist_item_id) : null,
+      );
+
+      setWishlistCount(Number(data.item_count || 0));
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : "Unable to update wishlist.",
+      );
+    } finally {
+      setWishlistLoading(false);
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Submit Review
+  |--------------------------------------------------------------------------
+  */
 
   async function submitReview() {
     if (!product) {
@@ -557,322 +1296,77 @@ export default function ProductDetailPage() {
     }
 
     if (reviewRating < 1) {
-      setReviewMessage(
-        "Please select a rating."
-      );
+      setReviewMessage("Please select a rating.");
+
       return;
     }
 
     if (!reviewTitle.trim()) {
-      setReviewMessage(
-        "Please enter a review title."
-      );
+      setReviewMessage("Please enter a review title.");
+
       return;
     }
 
     if (!reviewComment.trim()) {
-      setReviewMessage(
-        "Please write a review."
-      );
+      setReviewMessage("Please write a review.");
+
       return;
     }
 
     try {
       setReviewSubmitting(true);
+
       setReviewMessage("");
 
-      /*
-       * Review endpoint.
-       *
-       * This uses the product slug because your
-       * product route itself uses /products/:slug.
-       */
-      const response =
-        await storeApiFetch(
-          `/store/products/${encodeURIComponent(
-            product.slug
-          )}/reviews`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              rating: reviewRating,
-              title:
-                reviewTitle.trim(),
-              comment:
-                reviewComment.trim(),
-            }),
-          }
-        );
+      const response = await customerApiFetch(
+        `/customer/products/${product.id}/reviews`,
+        {
+          method: "POST",
 
-      const json =
-        await response.json();
+          body: JSON.stringify({
+            rating: reviewRating,
+
+            title: reviewTitle.trim(),
+
+            comment: reviewComment.trim(),
+          }),
+        },
+      );
+
+      const json = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          json?.message ||
-            "Unable to submit review."
-        );
+        throw new Error(json?.message || "Unable to submit review.");
       }
 
-      /*
-       * Clear form.
-       */
       setReviewRating(0);
+
       setReviewTitle("");
+
       setReviewComment("");
 
-      /*
-       * Show server message.
-       */
       setReviewMessage(
         json?.message ||
-          "Review submitted successfully. It is pending approval."
+          "Review submitted successfully. It is pending approval.",
       );
 
-      /*
-       * IMPORTANT:
-       *
-       * Reload product so the page gets the
-       * latest review data from backend.
-       *
-       * Do not show a pending review as an
-       * approved public review.
-       */
       await loadProduct(false);
     } catch (err) {
-      console.error(
-        "Review submission error:",
-        err
-      );
+      console.error("Review submission error:", err);
 
       setReviewMessage(
-        err instanceof Error
-          ? err.message
-          : "Unable to submit review."
+        err instanceof Error ? err.message : "Unable to submit review.",
       );
     } finally {
-      setReviewSubmitting(
-        false
-      );
+      setReviewSubmitting(false);
     }
   }
 
-  const router = useRouter();
-  // check login
-
-  function requireLogin() {
-  const token =
-    localStorage.getItem(
-      "customer_token"
-    );
-
-  if (token) {
-    return true;
-  }
-
-  const currentPath =
-    window.location.pathname +
-    window.location.search;
-
-  router.push(
-    `/login?redirect=${encodeURIComponent(
-      currentPath
-    )}`
-  );
-
-  return false;
-}
-  /* ==========================================================================
-     ADD TO CART
-  ========================================================================== */
-
-  async function addToCart() {
-  if (!requireLogin()) {
-    return;
-  }
-
-  if (!product) {
-    return;
-  }
-
-  if (!selectedVariant) {
-    setMessage(
-      "Please select a product variant."
-    );
-    return;
-  }
-
-  if (outOfStock) {
-    setMessage(
-      "This product is currently out of stock."
-    );
-    return;
-  }
-
-  if (quantity < 1) {
-    setMessage(
-      "Please select a valid quantity."
-    );
-    return;
-  }
-
-  if (quantity > stock) {
-    setMessage(
-      `Only ${stock} item(s) available.`
-    );
-    return;
-  }
-
-  try {
-    setAdding(true);
-    setMessage("");
-
-    const response =
-      await customerApiFetch(
-        "/customer/cart/items",
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-            product_variant_id:
-              selectedVariant.id,
-
-            quantity,
-          }),
-        }
-      );
-
-    const json =
-      await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        json?.message ||
-          "Unable to add product to cart."
-      );
-    }
-
-    setMessage(
-      "Product added to bag successfully."
-    );
-
-    window.dispatchEvent(
-      new Event(
-        "banglesmart:customer-refresh"
-      )
-    );
-
-  } catch (err) {
-    console.error(
-      "Add to cart error:",
-      err
-    );
-
-    setMessage(
-      err instanceof Error
-        ? err.message
-        : "Unable to add product to cart."
-    );
-
-  } finally {
-    setAdding(false);
-  }
-}
-
-  async function buyNow() {
-  if (!requireLogin()) {
-    return;
-  }
-
-  if (!product) {
-    return;
-  }
-
-  if (!selectedVariant) {
-    setMessage(
-      "Please select a product variant."
-    );
-    return;
-  }
-
-  if (outOfStock) {
-    setMessage(
-      "This product is currently out of stock."
-    );
-    return;
-  }
-
-  if (quantity < 1) {
-    setMessage(
-      "Please select a valid quantity."
-    );
-    return;
-  }
-
-  if (quantity > stock) {
-    setMessage(
-      `Only ${stock} item(s) available.`
-    );
-    return;
-  }
-
-  try {
-    setAdding(true);
-    setMessage("");
-
-    const response =
-      await customerApiFetch(
-        "/customer/cart/items",
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-            product_variant_id:
-              selectedVariant.id,
-
-            quantity,
-          }),
-        }
-      );
-
-    const json =
-      await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        json?.message ||
-          "Unable to proceed to checkout."
-      );
-    }
-
-    window.dispatchEvent(
-      new Event(
-        "banglesmart:customer-refresh"
-      )
-    );
-
-    router.push("/checkout");
-
-  } catch (err) {
-    console.error(
-      "Buy now error:",
-      err
-    );
-
-    setMessage(
-      err instanceof Error
-        ? err.message
-        : "Unable to proceed to checkout."
-    );
-
-  } finally {
-    setAdding(false);
-  }
-}
-
-  /* ==========================================================================
-     LOADING
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Loading
+  |--------------------------------------------------------------------------
+  */
 
   if (loading) {
     return (
@@ -882,9 +1376,13 @@ export default function ProductDetailPage() {
 
           <div className="space-y-5">
             <div className="h-10 animate-pulse rounded bg-[#f5f0e8]" />
+
             <div className="h-6 w-2/3 animate-pulse rounded bg-[#f5f0e8]" />
+
             <div className="h-20 animate-pulse rounded bg-[#f5f0e8]" />
+
             <div className="h-12 animate-pulse rounded bg-[#f5f0e8]" />
+
             <div className="h-32 animate-pulse rounded bg-[#f5f0e8]" />
           </div>
         </div>
@@ -892,9 +1390,11 @@ export default function ProductDetailPage() {
     );
   }
 
-  /* ==========================================================================
-     ERROR
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Error
+  |--------------------------------------------------------------------------
+  */
 
   if (error || !product) {
     return (
@@ -904,8 +1404,7 @@ export default function ProductDetailPage() {
         </h1>
 
         <p className="mt-3 text-sm text-gray-500">
-          {error ||
-            "The requested product could not be found."}
+          {error || "The requested product could not be found."}
         </p>
 
         <Link
@@ -919,48 +1418,60 @@ export default function ProductDetailPage() {
     );
   }
 
-  /* ==========================================================================
-     APPROVED REVIEW RATING
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Reviews
+  |--------------------------------------------------------------------------
+  */
 
-  const approvedReviews =
-    Array.isArray(product.reviews)
-      ? product.reviews.filter(
-          (review) =>
-            review.status ===
-            "approved"
-        )
-      : [];
+  const approvedReviews = Array.isArray(product.reviews)
+    ? product.reviews.filter((review) => review.status === "approved")
+    : [];
 
-  const reviewCount =
-    approvedReviews.length;
+  const reviewCount = approvedReviews.length;
 
   const reviewAverage =
     reviewCount > 0
       ? approvedReviews.reduce(
-          (total, review) =>
-            total +
-            Number(
-              review.rating || 0
-            ),
-          0
+          (total, review) => total + Number(review.rating || 0),
+          0,
         ) / reviewCount
       : 0;
 
-  /* ==========================================================================
-     RECOMMENDED PRODUCTS
-     
-     IMPORTANT:
-     Do not use product.recommended here because
-     your Product type currently does not define it.
-  ========================================================================== */
+  /*
+  |--------------------------------------------------------------------------
+  | Selected Color
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedColor =
+    selectedColorId !== null
+      ? colors.find((color) => Number(color.id) === Number(selectedColorId)) ||
+        null
+      : null;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Selected Size
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedSize =
+    selectedSizeId !== null
+      ? sizes.find((size) => Number(size.id) === Number(selectedSizeId)) || null
+      : null;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <main className="min-h-screen bg-white">
-
-      {/* =====================================================================
+      {/* ================================================================
           BREADCRUMB
-      ===================================================================== */}
+      ================================================================ */}
 
       <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-10">
         <Link
@@ -972,36 +1483,33 @@ export default function ProductDetailPage() {
         </Link>
       </div>
 
-      {/* =====================================================================
+      {/* ================================================================
           PRODUCT
-      ===================================================================== */}
+      ================================================================ */}
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-2">
-
-          {/* -----------------------------------------------------------------
+          {/* ============================================================
               GALLERY
-          ----------------------------------------------------------------- */}
+          ============================================================ */}
 
           <div>
             <ProductGallery
               product={product}
-              selectedImage={
-                selectedImage
-              }
-              onImageChange={
-                setSelectedImage
-              }
+              images={galleryImages}
+              selectedImage={selectedImage}
+              onImageChange={setSelectedImage}
             />
           </div>
 
-          {/* -----------------------------------------------------------------
-              PRODUCT INFO
-          ----------------------------------------------------------------- */}
+          {/* ============================================================
+              PRODUCT INFORMATION
+          ============================================================ */}
 
           <div>
-
-            {/* CATEGORY */}
+            {/* ----------------------------------------------------------
+                CATEGORY
+            ---------------------------------------------------------- */}
 
             {product.category && (
               <Link
@@ -1012,88 +1520,86 @@ export default function ProductDetailPage() {
               </Link>
             )}
 
-            {/* MATERIAL */}
+            {/* ----------------------------------------------------------
+                MATERIAL
+            ---------------------------------------------------------- */}
 
             {product.material && (
               <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#faf7ef] px-3 py-1.5">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                   Material
                 </span>
+
                 <span className="text-xs font-semibold text-gray-800">
                   {product.material.name}
                 </span>
               </div>
             )}
 
-            {/* NAME */}
+            {/* ----------------------------------------------------------
+                NAME
+            ---------------------------------------------------------- */}
 
             <h1 className="mt-3 font-[family-name:var(--font-playfair)] text-3xl leading-tight text-gray-900 sm:text-4xl">
               {product.name}
             </h1>
 
-            {/* BADGES */}
+            {/* ----------------------------------------------------------
+                BADGES
+            ---------------------------------------------------------- */}
 
             <div className="mt-4">
-              <ProductBadges
-                product={product}
-              />
+              <ProductBadges product={product} />
             </div>
 
-            {/* RATING */}
+            {/* ----------------------------------------------------------
+                RATING
+            ---------------------------------------------------------- */}
 
             <div className="mt-4 flex items-center gap-3">
-
               <div className="flex">
-                {[1, 2, 3, 4, 5].map(
-                  (item) => (
-                    <Star
-                      key={item}
-                      size={16}
-                      className={
-                        item <=
-                        Math.round(
-                          reviewAverage
-                        )
-                          ? "fill-[#c9a227] text-[#c9a227]"
-                          : "text-gray-300"
-                      }
-                    />
-                  )
-                )}
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <Star
+                    key={item}
+                    size={16}
+                    className={
+                      item <= Math.round(reviewAverage)
+                        ? "fill-[#c9a227] text-[#c9a227]"
+                        : "text-gray-300"
+                    }
+                  />
+                ))}
               </div>
 
               <span className="text-sm text-gray-500">
-                {reviewAverage.toFixed(
-                  1
-                )}
+                {reviewAverage.toFixed(1)}
               </span>
 
               <span className="text-sm text-gray-400">
-                ({reviewCount}{" "}
-                reviews)
+                ({reviewCount} reviews)
               </span>
             </div>
 
-            {/* DESCRIPTION */}
+            {/* ----------------------------------------------------------
+                DESCRIPTION
+            ---------------------------------------------------------- */}
 
             {product.short_description && (
               <p className="mt-5 text-sm leading-7 text-gray-600">
-                {
-                  product.short_description
-                }
+                {product.short_description}
               </p>
             )}
 
-            {/* PRICE */}
+            {/* ----------------------------------------------------------
+                PRICE
+            ---------------------------------------------------------- */}
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-
               <span className="text-3xl font-semibold text-gray-900">
                 {money(price)}
               </span>
 
-              {Number(mrp) >
-                Number(price) && (
+              {Number(mrp) > Number(price) && (
                 <span className="text-lg text-gray-400 line-through">
                   {money(mrp)}
                 </span>
@@ -1106,106 +1612,138 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* WISHLIST */}
+            {/* ----------------------------------------------------------
+                WISHLIST
+            ---------------------------------------------------------- */}
 
             <button
               type="button"
-              onClick={() =>
-                setWishlist(
-                  (value) =>
-                    !value
-                )
-              }
-              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-500"
+              onClick={() => void toggleWishlist()}
+              disabled={wishlistLoading}
+              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-500 disabled:opacity-50"
             >
               <Heart
                 size={17}
-                className={
-                  wishlist
-                    ? "fill-[#8f0828] text-[#8f0828]"
-                    : ""
-                }
+                className={wishlist ? "fill-[#8f0828] text-[#8f0828]" : ""}
               />
 
-              {wishlist
-                ? "Added to Wishlist"
-                : "Add to Wishlist"}
+              {wishlist ? "Added to Wishlist" : "Add to Wishlist"}
             </button>
 
             <div className="my-7 border-t border-gray-200" />
 
-            {/* VARIANTS */}
+            {/* ============================================================
+                DESIGN
+            ============================================================ */}
+
+            {activeDesigns.length > 0 && (
+              <div className="mb-7">
+                <DesignSelector
+                  designs={activeDesigns}
+                  selectedDesignId={selectedDesignId}
+                  selectedColorId={selectedColorId}
+                  onChange={onDesignChange}
+                />
+              </div>
+            )}
+
+            {/* ============================================================
+                VARIANTS
+            ============================================================ */}
 
             <ProductVariants
               product={product}
               sizes={sizes}
               colors={colors}
-              selectedSizeId={
-                selectedSizeId
-              }
-              selectedColorId={
-                selectedColorId
-              }
-              selectedVariant={
-                selectedVariant
-              }
-              sizeHasStock={
-                sizeHasStock
-              }
-              colorHasStock={
-                colorHasStock
-              }
-              onSizeChange={
-                onSizeChange
-              }
-              onColorChange={
-                onColorChange
-              }
+              selectedSizeId={selectedSizeId}
+              selectedColorId={selectedColorId}
+              selectedVariant={selectedVariant}
+              sizeHasStock={sizeHasStock}
+              colorHasStock={colorHasStock}
+              onSizeChange={onSizeChange}
+              onColorChange={onColorChange}
             />
 
-            {/* STOCK */}
+            {/* ============================================================
+                CURRENT SELECTION
+            ============================================================ */}
 
-            <div className="mt-6">
+            {(selectedSize || selectedColor || selectedDesign) && (
+              <div className="mt-4 rounded-xl bg-[#faf8f5] px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
+                  Your selection
+                </p>
 
-              {!selectedVariant ? (
+                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                  {selectedSize && (
+                    <div>
+                      <span className="text-gray-500">Size: </span>
+
+                      <strong className="font-semibold text-gray-900">
+                        {selectedSize.display_name || selectedSize.name}
+                      </strong>
+                    </div>
+                  )}
+
+                  {selectedColor && (
+                    <div>
+                      <span className="text-gray-500">Color: </span>
+
+                      <strong className="font-semibold text-gray-900">
+                        {selectedColor.display_name || selectedColor.name}
+                      </strong>
+                    </div>
+                  )}
+
+                  {selectedDesign && (
+                    <div>
+                      <span className="text-gray-500">Design: </span>
+
+                      <strong className="font-semibold text-gray-900">
+                        {selectedDesign.label || `Design ${selectedDesign.id}`}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================
+                STOCK
+            ============================================================ */}
+
+            <div className="mt-5">
+              {selectedSizeId === null || selectedColorId === null ? (
                 <p className="text-sm text-gray-500">
-                  Select an option
-                  to continue.
+                  Please select size and color.
+                </p>
+              ) : !selectedVariant ? (
+                <p className="text-sm font-medium text-red-600">
+                  This size and color combination is unavailable.
                 </p>
               ) : outOfStock ? (
-                <p className="text-sm font-medium text-red-600">
-                  Out of Stock
-                </p>
+                <p className="text-sm font-medium text-red-600">Out of Stock</p>
               ) : (
                 <p className="text-sm font-medium text-green-700">
-                  {stock <= 5
-                    ? `Only ${stock} left in stock`
-                    : "In Stock"}
+                  {stock <= 5 ? `Only ${stock} left in stock` : "In Stock"}
                 </p>
               )}
-
             </div>
 
-            {/* QUANTITY + CART */}
+            {/* ============================================================
+                QUANTITY + ACTIONS
+            ============================================================ */}
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr_1fr]">
+              {/* --------------------------------------------------------
+                  QUANTITY
+              -------------------------------------------------------- */}
 
               <div className="flex h-12 items-center rounded-lg border border-gray-300">
-
                 <button
                   type="button"
-                  disabled={
-                    quantity <= 1
-                  }
-                  onClick={() =>
-                    setQuantity(
-                      (value) =>
-                        Math.max(
-                          1,
-                          value - 1
-                        )
-                    )
-                  }
+                  disabled={quantity <= 1}
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
                   className="flex h-full w-10 items-center justify-center text-gray-500 disabled:opacity-40"
                 >
                   <Minus size={15} />
@@ -1217,61 +1755,56 @@ export default function ProductDetailPage() {
 
                 <button
                   type="button"
-                  disabled={
-                    outOfStock ||
-                    quantity >= stock
-                  }
+                  disabled={!selectedVariant || outOfStock || quantity >= stock}
                   onClick={() =>
-                    setQuantity((value) =>
-                      Math.min(stock, value + 1)
-                    )
+                    setQuantity((value) => Math.min(stock, value + 1))
                   }
                   className="flex h-full w-10 items-center justify-center text-gray-500 disabled:opacity-40"
                 >
                   <Plus size={15} />
                 </button>
-
               </div>
+
+              {/* --------------------------------------------------------
+                  ADD TO CART
+              -------------------------------------------------------- */}
 
               <button
                 type="button"
-                disabled={
-                  adding ||
-                  outOfStock ||
-                  !selectedVariant
-                }
-                onClick={addToCart}
+                disabled={addingToCart || buyingNow || outOfStock}
+                onClick={() => void addToCart()}
                 className="flex h-12 items-center justify-center gap-2 rounded-lg border border-[#111827] px-5 text-sm font-semibold text-[#111827] transition hover:bg-[#111827] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-400"
               >
                 <ShoppingBag size={18} />
 
-                {adding
+                {addingToCart
                   ? "Adding..."
                   : outOfStock
                     ? "Out of Stock"
                     : "Add to Cart"}
               </button>
 
+              {/* --------------------------------------------------------
+                  BUY NOW
+              -------------------------------------------------------- */}
+
               <button
                 type="button"
-                disabled={
-                  adding ||
-                  outOfStock ||
-                  !selectedVariant
-                }
-                onClick={buyNow}
+                disabled={buyingNow || addingToCart || outOfStock}
+                onClick={() => void buyNow()}
                 className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#8f0828] px-5 text-sm font-semibold text-white transition hover:bg-[#72061f] disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                {adding
-                  ? "Processing..."
+                {buyingNow
+                  ? "Opening Checkout..."
                   : outOfStock
                     ? "Out of Stock"
                     : "Buy Now"}
               </button>
-
             </div>
 
-            {/* CART MESSAGE */}
+            {/* ----------------------------------------------------------
+                MESSAGE
+            ---------------------------------------------------------- */}
 
             {message && (
               <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
@@ -1279,96 +1812,53 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* SKU */}
+            {/* ----------------------------------------------------------
+                SKU
+            ---------------------------------------------------------- */}
 
             {selectedVariant?.sku && (
               <p className="mt-5 text-xs text-gray-400">
-                SKU:{" "}
-                {
-                  selectedVariant.sku
-                }
+                SKU: {selectedVariant.sku}
               </p>
             )}
-
           </div>
         </div>
       </section>
 
-      {/* =====================================================================
+      {/* ================================================================
           DESCRIPTION
-      ===================================================================== */}
+      ================================================================ */}
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
-        <ProductDescription
-          product={product}
-        />
+        <ProductDescription product={product} />
       </section>
 
-      {/* =====================================================================
+      {/* ================================================================
           REVIEWS
-      ===================================================================== */}
+      ================================================================ */}
 
       <ProductReviews
-        reviews={
-          (product.reviews ||
-            []) as ProductReview[]
-        }
-
-        myReview={
-          myReview
-        }
-
-        reviewRating={
-          reviewRating
-        }
-
-        reviewTitle={
-          reviewTitle
-        }
-
-        reviewComment={
-          reviewComment
-        }
-
-        reviewSubmitting={
-          reviewSubmitting
-        }
-
-        reviewMessage={
-          reviewMessage
-        }
-
-        onRatingChange={
-          setReviewRating
-        }
-
-        onTitleChange={
-          setReviewTitle
-        }
-
-        onCommentChange={
-          setReviewComment
-        }
-
-        onSubmit={
-          submitReview
-        }
+        reviews={(product.reviews || []) as ProductReview[]}
+        myReview={myReview}
+        reviewRating={reviewRating}
+        reviewTitle={reviewTitle}
+        reviewComment={reviewComment}
+        reviewSubmitting={reviewSubmitting}
+        reviewMessage={reviewMessage}
+        onRatingChange={setReviewRating}
+        onTitleChange={setReviewTitle}
+        onCommentChange={setReviewComment}
+        onSubmit={submitReview}
       />
 
-      {/* =====================================================================
+      {/* ================================================================
           RECOMMENDED PRODUCTS
-
-          We intentionally do NOT use:
-
-          product.recommended
-
-          because your Product type does not currently define that property.
-      ===================================================================== */}
+      ================================================================ */}
 
       <RecommendedProducts
         currentProductId={product.id}
-        initialProducts={product.recommended ?? []}
-        categorySlug={product.category?.slug ?? null}
+        initialProducts={product.recommended || []}
+        categorySlug={product.category?.slug || null}
       />
     </main>
   );

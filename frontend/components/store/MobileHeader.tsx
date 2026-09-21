@@ -157,6 +157,7 @@ export default function MobileHeader({
                 alt="BanglesMart"
                 width={190}
                 height={80}
+                loading="eager"
                 priority
                 className="h-12 w-auto object-contain sm:h-14"
               />
@@ -277,6 +278,7 @@ export default function MobileHeader({
                   alt="BanglesMart"
                   width={170}
                   height={70}
+                  loading="eager"
                   className="h-12 w-auto object-contain"
                 />
               </Link>

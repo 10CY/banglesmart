@@ -34,15 +34,12 @@ type PageProps = {
 
 async function getCategories(): Promise<Category[]> {
   try {
-    const response = await fetch(
-      `${API_URL}/store/categories`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      }
-    );
+    const response = await fetch(`${API_URL}/store/categories`, {
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       return [];
@@ -60,8 +57,7 @@ async function getCategories(): Promise<Category[]> {
       slug: item.slug,
 
       parent_id:
-        item.parent_id === null ||
-        item.parent_id === undefined
+        item.parent_id === null || item.parent_id === undefined
           ? null
           : Number(item.parent_id),
 
@@ -76,26 +72,20 @@ async function getCategories(): Promise<Category[]> {
             slug: child.slug,
 
             parent_id:
-              child.parent_id === null ||
-              child.parent_id === undefined
+              child.parent_id === null || child.parent_id === undefined
                 ? null
                 : Number(child.parent_id),
 
-            description:
-              child.description ?? null,
+            description: child.description ?? null,
 
-            image:
-              child.image ?? null,
+            image: child.image ?? null,
 
             children: [],
           }))
         : [],
     }));
   } catch (error) {
-    console.error(
-      "Categories request failed:",
-      error
-    );
+    console.error("Categories request failed:", error);
 
     return [];
   }
@@ -105,51 +95,34 @@ export default async function CategoryPage({
   params,
   searchParams,
 }: PageProps) {
-  const {
-    category: segments,
-  } = await params;
+  const { category: segments } = await params;
 
-  const filters =
-    await searchParams;
+  const filters = await searchParams;
 
-  if (
-    !segments ||
-    segments.length === 0 ||
-    segments.length > 2
-  ) {
+  if (!segments || segments.length === 0 || segments.length > 2) {
     notFound();
   }
 
-  const categories =
-    await getCategories();
+  const categories = await getCategories();
 
   if (!categories.length) {
     notFound();
   }
 
-  const parent =
-    categories.find(
-      (item) =>
-        item.slug === segments[0] &&
-        item.parent_id === null
-    );
+  const parent = categories.find(
+    (item) => item.slug === segments[0] && item.parent_id === null,
+  );
 
   if (!parent) {
     notFound();
   }
 
-  let selectedCategory: Category =
-    parent;
+  let selectedCategory: Category = parent;
 
-  let child: Category | null =
-    null;
+  let child: Category | null = null;
 
   if (segments.length === 2) {
-    child =
-      parent.children?.find(
-        (item) =>
-          item.slug === segments[1]
-      ) || null;
+    child = parent.children?.find((item) => item.slug === segments[1]) || null;
 
     if (!child) {
       notFound();
@@ -158,27 +131,23 @@ export default async function CategoryPage({
     selectedCategory = child;
   }
 
-  const filterCategories: FilterCategory[] =
-    categories.map((item) => ({
-      id: item.id,
-      name: item.name,
-      slug: item.slug,
-      parent_id: item.parent_id,
+  const filterCategories: FilterCategory[] = categories.map((item) => ({
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    parent_id: item.parent_id,
 
-      children:
-        item.children?.map(
-          (childItem) => ({
-            id: childItem.id,
-            name: childItem.name,
-            slug: childItem.slug,
+    children:
+      item.children?.map((childItem) => ({
+        id: childItem.id,
+        name: childItem.name,
+        slug: childItem.slug,
 
-            parent_id:
-              childItem.parent_id,
+        parent_id: childItem.parent_id,
 
-            children: [],
-          })
-        ) || [],
-    }));
+        children: [],
+      })) || [],
+  }));
 
   return (
     <CategoryPageClient
@@ -187,33 +156,21 @@ export default async function CategoryPage({
       selectedCategory={selectedCategory}
       child={child}
       initialFilters={{
-        search:
-          filters.search || "",
+        search: filters.search || "",
 
-        minPrice:
-          filters.min_price || "",
+        minPrice: filters.min_price || "",
 
-        maxPrice:
-          filters.max_price || "",
+        maxPrice: filters.max_price || "",
 
-        sort:
-          filters.sort || "",
+        sort: filters.sort || "",
 
-        newArrival:
-          filters.new_arrival === "1",
+        newArrival: filters.new_arrival === "1",
 
-        bestSeller:
-          filters.best_seller === "1",
+        bestSeller: filters.best_seller === "1",
 
-        featured:
-          filters.featured === "1",
+        featured: filters.featured === "1",
 
-        page: Math.max(
-          1,
-          Number(
-            filters.page || "1"
-          )
-        ),
+        page: Math.max(1, Number(filters.page || "1")),
       }}
     />
   );

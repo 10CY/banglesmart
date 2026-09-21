@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   useCallback,
   useEffect,
@@ -102,6 +104,8 @@ type Pagination = {
 
 
 export default function AdminReviewsPage() {
+  const { confirm, toast } = useAdminFeedback();
+
 
 
   const [
@@ -476,10 +480,12 @@ export default function AdminReviewsPage() {
     review: Review
   ) {
 
-    const confirmed =
-      window.confirm(
-        "Delete this review permanently? This action cannot be undone."
-      );
+    const confirmed = await confirm({
+      title: "Delete review?",
+      description: "Delete this customer review permanently? This action cannot be undone.",
+      confirmLabel: "Delete review",
+      tone: "danger",
+    });
 
 
     if (!confirmed) {

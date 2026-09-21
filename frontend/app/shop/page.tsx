@@ -617,51 +617,67 @@ function ShopPageContent() {
             SIDEBAR + PRODUCTS
         =================================================== */}
 
-        <div className="grid gap-10 lg:grid-cols-[270px_minmax(0,1fr)]">
+        <div className="grid items-start gap-8 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[255px_minmax(0,1fr)]">
           {/* =================================================
               DESKTOP SIDEBAR
           ================================================= */}
 
           <aside className="hidden lg:block">
-            <div className="sticky top-28 rounded-2xl border border-[#e7dfd4] bg-white p-5 shadow-[0_8px_30px_rgba(50,35,20,.035)]">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-[#191919]">
-                    Refine
-                  </h3>
+            <div className="sticky top-24 flex max-h-[calc(100vh-7rem)] flex-col">
+              {/* =================================================
+                  FILTER HEADER
+              ================================================= */}
 
-                  <p className="mt-1 text-[10px] text-[#999]">
-                    Find your perfect bangles
-                  </p>
+              <div className="shrink-0 border-b border-[#e9e2d8] bg-[#fbfaf7] pb-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#191919]">
+                      Filters
+                    </h3>
+
+                    <p className="mt-1 text-[11px] text-[#8b847a]">
+                      Refine your selection
+                    </p>
+                  </div>
+
+                  {filterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8f0828] transition hover:opacity-70"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
-
-                {filterCount > 0 && (
-                  <span className="rounded-full bg-[#f8f1e5] px-2 py-1 text-[9px] font-semibold text-[#8f0828]">
-                    {filterCount} active
-                  </span>
-                )}
               </div>
 
-              <CategoryFilters
-                categories={filterCategories}
-                category={category}
-                setCategory={setCategory}
-                search={search}
-                setSearch={setSearch}
-                minPrice={minPrice}
-                maxPrice={maxPrice}
-                setMinPrice={setMinPrice}
-                setMaxPrice={setMaxPrice}
-                sort={sort}
-                setSort={setSort}
-                newArrival={newArrival}
-                bestSeller={bestSeller}
-                featured={featured}
-                setNewArrival={setNewArrival}
-                setBestSeller={setBestSeller}
-                setFeatured={setFeatured}
-                clearFilters={clearFilters}
-              />
+              {/* =================================================
+                  SCROLLABLE FILTER CONTENT
+              ================================================= */}
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-5 pr-3 [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d5cec4] [&::-webkit-scrollbar-track]:bg-transparent">
+                <CategoryFilters
+                  categories={filterCategories}
+                  category={category}
+                  setCategory={setCategory}
+                  search={search}
+                  setSearch={setSearch}
+                  minPrice={minPrice}
+                  maxPrice={maxPrice}
+                  setMinPrice={setMinPrice}
+                  setMaxPrice={setMaxPrice}
+                  sort={sort}
+                  setSort={setSort}
+                  newArrival={newArrival}
+                  bestSeller={bestSeller}
+                  featured={featured}
+                  setNewArrival={setNewArrival}
+                  setBestSeller={setBestSeller}
+                  setFeatured={setFeatured}
+                  clearFilters={clearFilters}
+                />
+              </div>
             </div>
           </aside>
 

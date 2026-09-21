@@ -28,9 +28,9 @@ import {
 import { useParams, useRouter } from "next/navigation";
 
 import { BACKEND_URL } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 import { customerApiFetch } from "@/lib/customerApi";
+import { useFeedback } from "@/components/ui/FeedbackProvider";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -108,6 +108,8 @@ export default function CustomerOrderDetailPage() {
   const params = useParams();
 
   const router = useRouter();
+
+  const { confirm, toast } = useFeedback();
 
   const id = String(params.id);
 
@@ -199,14 +201,14 @@ export default function CustomerOrderDetailPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data?.message || "Unable to reorder this purchase.");
+        toast(data?.message || "Unable to reorder this purchase.", "error");
 
         return;
       }
 
       router.push("/cart");
     } catch {
-      alert("Unable to reorder this purchase.");
+      toast("Unable to reorder this purchase.", "error");
     }
   }
 
@@ -243,12 +245,12 @@ export default function CustomerOrderDetailPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data?.message || "Unable to submit return request.");
+        toast(data?.message || "Unable to submit return request.", "error");
 
         return;
       }
 
-      alert("Return request submitted successfully.");
+      toast("Return request submitted successfully.", "success");
 
       setReturnOpen(false);
 
@@ -256,7 +258,7 @@ export default function CustomerOrderDetailPage() {
 
       router.push("/account/returns");
     } catch {
-      alert("Unable to submit return request.");
+      toast("Unable to submit return request.", "error");
     } finally {
       setReturnSubmitting(false);
     }
@@ -271,9 +273,12 @@ export default function CustomerOrderDetailPage() {
       return;
     }
 
-    const confirmCancel = window.confirm(
-      "Are you sure you want to cancel this order?",
-    );
+    const confirmCancel = await confirm({
+      title: "Cancel order?",
+      description: "Are you sure you want to cancel this order? This action may not be reversible once processing has started.",
+      confirmLabel: "Cancel order",
+      tone: "danger",
+    });
 
     if (!confirmCancel) {
       return;
@@ -290,16 +295,16 @@ export default function CustomerOrderDetailPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Unable to cancel order.");
+        toast(data.message || "Unable to cancel order.", "error");
 
         return;
       }
 
-      alert("Order cancelled successfully.");
+      toast("Order cancelled successfully.", "success");
 
       loadOrder();
     } catch {
-      alert("Something went wrong.");
+      toast("Something went wrong.", "error");
     }
   }
 
@@ -1120,7 +1125,7 @@ export default function CustomerOrderDetailPage() {
                       <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#eadfda] bg-[#faf7f5] sm:h-28 sm:w-28">
                         {item.image ? (
                           <img
-                            src={getProductImageUrl(item.image) || "/logo.png"}
+                            src={`${BACKEND_URL}/storage/${item.image}`}
                             alt={item.product_name}
                             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                           />

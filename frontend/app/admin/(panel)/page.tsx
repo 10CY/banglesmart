@@ -17,6 +17,8 @@ import {
   Clock3,
   Package,
   ShoppingBag,
+  ShoppingCart,
+  Heart,
   Truck,
   UserRound,
   XCircle,
@@ -26,7 +28,6 @@ import {
   apiFetch,
   BACKEND_URL,
 } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -56,6 +57,10 @@ type Summary = {
   today_orders: number;
 
   today_revenue: number;
+
+  active_carts: number;
+  cart_items: number;
+  wishlist_items: number;
 };
 
 type SalesChartItem = {
@@ -557,6 +562,17 @@ export default function AdminDashboardPage() {
 
         </Link>
 
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link href="/admin/carts" className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-400 hover:shadow-sm">
+          <div><p className="text-sm text-gray-500">Active Customer Carts</p><p className="mt-2 text-2xl font-semibold text-gray-900">{summary.active_carts || 0}</p><p className="mt-1 text-xs text-gray-400">{summary.cart_items || 0} item(s) currently in carts</p></div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-rose-50 text-rose-700"><ShoppingCart size={21}/></div>
+        </Link>
+        <Link href="/admin/wishlists" className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-400 hover:shadow-sm">
+          <div><p className="text-sm text-gray-500">Wishlist Interest</p><p className="mt-2 text-2xl font-semibold text-gray-900">{summary.wishlist_items || 0}</p><p className="mt-1 text-xs text-gray-400">Products customers saved for later</p></div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-pink-50 text-pink-700"><Heart size={21}/></div>
+        </Link>
       </div>
 
       {/* -------------------------------------------------------------------- */}
@@ -1077,7 +1093,7 @@ export default function AdminDashboardPage() {
                       {item.image ? (
 
                         <img
-                          src={getProductImageUrl(item.image) || "/logo.png"}
+                          src={`${BACKEND_URL}/storage/${item.image}`}
                           alt={
                             item.product_name ||
                             ""
@@ -1203,7 +1219,7 @@ export default function AdminDashboardPage() {
                       {product.image ? (
 
                         <img
-                          src={getProductImageUrl(product.image) || "/logo.png"}
+                          src={`${BACKEND_URL}/storage/${product.image}`}
                           alt={
                             product.product_name
                           }

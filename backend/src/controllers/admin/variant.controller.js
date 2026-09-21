@@ -10,27 +10,15 @@ import { ok, fail } from "../../utils/http.js";
 function normalizeVariant(row) {
   if (!row) return null;
 
-  const quantity = Math.max(
-    0,
-    Number(row.quantity ?? 0)
-  );
+  const quantity = Math.max(0, Number(row.quantity ?? 0));
 
-  const reservedQuantity = Math.max(
-    0,
-    Number(row.reserved_quantity ?? 0)
-  );
+  const reservedQuantity = Math.max(0, Number(row.reserved_quantity ?? 0));
 
-  const lowStockLimit = Math.max(
-    0,
-    Number(row.low_stock_limit ?? 5)
-  );
+  const lowStockLimit = Math.max(0, Number(row.low_stock_limit ?? 5));
 
   const availableQuantity = Math.max(
     0,
-    Number(
-      row.available_quantity ??
-        quantity - reservedQuantity
-    )
+    Number(row.available_quantity ?? quantity - reservedQuantity),
   );
 
   return {
@@ -43,9 +31,7 @@ function normalizeVariant(row) {
     sku: row.sku,
 
     mrp: String(row.mrp ?? "0"),
-    selling_price: String(
-      row.selling_price ?? "0"
-    ),
+    selling_price: String(row.selling_price ?? "0"),
 
     status: row.status || "active",
 
@@ -58,12 +44,8 @@ function normalizeVariant(row) {
     size: row.size_id
       ? {
           id: Number(row.size_id),
-          name:
-            row.size_name || "",
-          display_name:
-            row.size_display_name ||
-            row.size_name ||
-            "",
+          name: row.size_name || "",
+          display_name: row.size_display_name || row.size_name || "",
         }
       : null,
 
@@ -76,15 +58,9 @@ function normalizeVariant(row) {
     color: row.color_id
       ? {
           id: Number(row.color_id),
-          name:
-            row.color_name || "",
-          display_name:
-            row.color_display_name ||
-            row.color_name ||
-            "",
-          hex_code:
-            row.color_hex_code ||
-            null,
+          name: row.color_name || "",
+          display_name: row.color_display_name || row.color_name || "",
+          hex_code: row.color_hex_code || null,
         }
       : null,
 
@@ -95,24 +71,17 @@ function normalizeVariant(row) {
     */
 
     inventory: {
-      id:
-        row.inventory_id
-          ? Number(row.inventory_id)
-          : undefined,
+      id: row.inventory_id ? Number(row.inventory_id) : undefined,
 
-      product_variant_id:
-        Number(row.id),
+      product_variant_id: Number(row.id),
 
       quantity,
 
-      reserved_quantity:
-        reservedQuantity,
+      reserved_quantity: reservedQuantity,
 
-      low_stock_limit:
-        lowStockLimit,
+      low_stock_limit: lowStockLimit,
 
-      available_quantity:
-        availableQuantity,
+      available_quantity: availableQuantity,
     },
 
     /*
@@ -124,34 +93,25 @@ function normalizeVariant(row) {
     |
     */
 
-    size_name:
-      row.size_name || null,
+    size_name: row.size_name || null,
 
-    size_display_name:
-      row.size_display_name || null,
+    size_display_name: row.size_display_name || null,
 
-    color_name:
-      row.color_name || null,
+    color_name: row.color_name || null,
 
-    color_display_name:
-      row.color_display_name || null,
+    color_display_name: row.color_display_name || null,
 
-    color_hex_code:
-      row.color_hex_code || null,
+    color_hex_code: row.color_hex_code || null,
 
     quantity,
 
-    reserved_quantity:
-      reservedQuantity,
+    reserved_quantity: reservedQuantity,
 
-    low_stock_limit:
-      lowStockLimit,
+    low_stock_limit: lowStockLimit,
 
-    available_quantity:
-      availableQuantity,
+    available_quantity: availableQuantity,
   };
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -204,7 +164,6 @@ const VARIANT_SELECT = `
     ON i.product_variant_id = pv.id
 `;
 
-
 /*
 |--------------------------------------------------------------------------
 | GET /admin/products/:product/variants
@@ -213,15 +172,10 @@ const VARIANT_SELECT = `
 
 export async function index(req, res) {
   try {
-    const productId =
-      Number(req.params.product);
+    const productId = Number(req.params.product);
 
     if (!productId) {
-      return fail(
-        res,
-        "Invalid product ID.",
-        422
-      );
+      return fail(res, "Invalid product ID.", 422);
     }
 
     const rows = await query(
@@ -232,7 +186,7 @@ export async function index(req, res) {
 
       ORDER BY pv.id DESC
       `,
-      [productId]
+      [productId],
     );
 
     return ok(res, {
@@ -240,19 +194,11 @@ export async function index(req, res) {
       data: rows.map(normalizeVariant),
     });
   } catch (error) {
-    console.error(
-      "Variant index error:",
-      error
-    );
+    console.error("Variant index error:", error);
 
-    return fail(
-      res,
-      "Unable to load variants.",
-      500
-    );
+    return fail(res, "Unable to load variants.", 500);
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -262,75 +208,39 @@ export async function index(req, res) {
 
 export async function store(req, res) {
   try {
-    const productId =
-      Number(req.params.product);
+    const productId = Number(req.params.product);
 
-    const x =
-      req.body || {};
+    const x = req.body || {};
 
     if (!productId) {
-      return fail(
-        res,
-        "Invalid product ID.",
-        422
-      );
+      return fail(res, "Invalid product ID.", 422);
     }
 
     if (!x.size_id) {
-      return fail(
-        res,
-        "Size is required.",
-        422
-      );
+      return fail(res, "Size is required.", 422);
     }
 
     if (!x.color_id) {
-      return fail(
-        res,
-        "Color is required.",
-        422
-      );
+      return fail(res, "Color is required.", 422);
     }
 
-    if (
-      !x.sku ||
-      !String(x.sku).trim()
-    ) {
-      return fail(
-        res,
-        "SKU is required.",
-        422
-      );
+    if (!x.sku || !String(x.sku).trim()) {
+      return fail(res, "SKU is required.", 422);
     }
 
-    const sizeId =
-      Number(x.size_id);
+    const sizeId = Number(x.size_id);
 
-    const colorId =
-      Number(x.color_id);
+    const colorId = Number(x.color_id);
 
-    const sku =
-      String(x.sku).trim();
+    const sku = String(x.sku).trim();
 
-    const mrp =
-      Number(x.mrp || 0);
+    const mrp = Number(x.mrp || 0);
 
-    const sellingPrice =
-      Number(x.selling_price || 0);
+    const sellingPrice = Number(x.selling_price || 0);
 
-    const quantity =
-      Math.max(
-        0,
-        Number(x.quantity ?? 0)
-      );
+    const quantity = Math.max(0, Number(x.quantity ?? 0));
 
-    const lowStockLimit =
-      Math.max(
-        0,
-        Number(
-          x.low_stock_limit ?? 5
-        )
-      );
+    const lowStockLimit = Math.max(0, Number(x.low_stock_limit ?? 5));
 
     /*
     |--------------------------------------------------------------------------
@@ -345,16 +255,12 @@ export async function store(req, res) {
         FROM products
         WHERE id=?
         `,
-        [productId]
+        [productId],
       )
     )[0];
 
     if (!product) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+      return fail(res, "Product not found.", 404);
     }
 
     /*
@@ -371,16 +277,12 @@ export async function store(req, res) {
         WHERE id=?
         AND status='active'
         `,
-        [sizeId]
+        [sizeId],
       )
     )[0];
 
     if (!size) {
-      return fail(
-        res,
-        "Size not found.",
-        404
-      );
+      return fail(res, "Size not found.", 404);
     }
 
     /*
@@ -397,16 +299,12 @@ export async function store(req, res) {
         WHERE id=?
         AND status='active'
         `,
-        [colorId]
+        [colorId],
       )
     )[0];
 
     if (!color) {
-      return fail(
-        res,
-        "Color not found.",
-        404
-      );
+      return fail(res, "Color not found.", 404);
     }
 
     /*
@@ -422,16 +320,12 @@ export async function store(req, res) {
         FROM product_variants
         WHERE sku=?
         `,
-        [sku]
+        [sku],
       )
     )[0];
 
     if (existingSku) {
-      return fail(
-        res,
-        "SKU already exists.",
-        422
-      );
+      return fail(res, "SKU already exists.", 422);
     }
 
     /*
@@ -449,20 +343,12 @@ export async function store(req, res) {
         AND size_id=?
         AND color_id=?
         `,
-        [
-          productId,
-          sizeId,
-          colorId,
-        ]
+        [productId, sizeId, colorId],
       )
     )[0];
 
     if (existingCombination) {
-      return fail(
-        res,
-        "This size and color combination already exists.",
-        422
-      );
+      return fail(res, "This size and color combination already exists.", 422);
     }
 
     /*
@@ -471,9 +357,8 @@ export async function store(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const result =
-      await query(
-        `
+    const result = await query(
+      `
         INSERT INTO product_variants
         (
           product_id,
@@ -489,19 +374,18 @@ export async function store(req, res) {
         VALUES
         (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `,
-        [
-          productId,
-          sizeId,
-          colorId,
-          sku,
-          mrp,
-          sellingPrice,
-          x.status || "active",
-        ]
-      );
+      [
+        productId,
+        sizeId,
+        colorId,
+        sku,
+        mrp,
+        sellingPrice,
+        x.status || "active",
+      ],
+    );
 
-    const variantId =
-      result.insertId;
+    const variantId = result.insertId;
 
     /*
     |--------------------------------------------------------------------------
@@ -523,11 +407,7 @@ export async function store(req, res) {
       VALUES
       (?, ?, 0, ?, NOW(), NOW())
       `,
-      [
-        variantId,
-        quantity,
-        lowStockLimit,
-      ]
+      [variantId, quantity, lowStockLimit],
     );
 
     /*
@@ -543,7 +423,7 @@ export async function store(req, res) {
 
         WHERE pv.id=?
         `,
-        [variantId]
+        [variantId],
       )
     )[0];
 
@@ -552,31 +432,18 @@ export async function store(req, res) {
       {
         success: true,
 
-        message:
-          "Variant created successfully.",
+        message: "Variant created successfully.",
 
-        data:
-          normalizeVariant(
-            variant
-          ),
+        data: normalizeVariant(variant),
       },
-      201
+      201,
     );
   } catch (error) {
-    console.error(
-      "Variant store error:",
-      error
-    );
+    console.error("Variant store error:", error);
 
-    return fail(
-      res,
-      error?.message ||
-        "Unable to create variant.",
-      500
-    );
+    return fail(res, error?.message || "Unable to create variant.", 500);
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -586,18 +453,12 @@ export async function store(req, res) {
 
 export async function update(req, res) {
   try {
-    const variantId =
-      Number(req.params.id);
+    const variantId = Number(req.params.id);
 
-    const x =
-      req.body || {};
+    const x = req.body || {};
 
     if (!variantId) {
-      return fail(
-        res,
-        "Invalid variant ID.",
-        422
-      );
+      return fail(res, "Invalid variant ID.", 422);
     }
 
     /*
@@ -613,55 +474,25 @@ export async function update(req, res) {
         FROM product_variants
         WHERE id=?
         `,
-        [variantId]
+        [variantId],
       )
     )[0];
 
     if (!old) {
-      return fail(
-        res,
-        "Variant not found.",
-        404
-      );
+      return fail(res, "Variant not found.", 404);
     }
 
-    const sizeId =
-      Number(
-        x.size_id ??
-          old.size_id
-      );
+    const sizeId = Number(x.size_id ?? old.size_id);
 
-    const colorId =
-      Number(
-        x.color_id ??
-          old.color_id
-      );
+    const colorId = Number(x.color_id ?? old.color_id);
 
-    const sku =
-      String(
-        x.sku ??
-          old.sku ??
-          ""
-      ).trim();
+    const sku = String(x.sku ?? old.sku ?? "").trim();
 
-    const mrp =
-      Number(
-        x.mrp ??
-          old.mrp ??
-          0
-      );
+    const mrp = Number(x.mrp ?? old.mrp ?? 0);
 
-    const sellingPrice =
-      Number(
-        x.selling_price ??
-          old.selling_price ??
-          0
-      );
+    const sellingPrice = Number(x.selling_price ?? old.selling_price ?? 0);
 
-    const status =
-      x.status ??
-      old.status ??
-      "active";
+    const status = x.status ?? old.status ?? "active";
 
     /*
     |--------------------------------------------------------------------------
@@ -677,16 +508,12 @@ export async function update(req, res) {
         WHERE id=?
         AND status='active'
         `,
-        [sizeId]
+        [sizeId],
       )
     )[0];
 
     if (!size) {
-      return fail(
-        res,
-        "Size not found.",
-        404
-      );
+      return fail(res, "Size not found.", 404);
     }
 
     /*
@@ -703,16 +530,12 @@ export async function update(req, res) {
         WHERE id=?
         AND status='active'
         `,
-        [colorId]
+        [colorId],
       )
     )[0];
 
     if (!color) {
-      return fail(
-        res,
-        "Color not found.",
-        404
-      );
+      return fail(res, "Color not found.", 404);
     }
 
     /*
@@ -722,11 +545,7 @@ export async function update(req, res) {
     */
 
     if (!sku) {
-      return fail(
-        res,
-        "SKU is required.",
-        422
-      );
+      return fail(res, "SKU is required.", 422);
     }
 
     const duplicateSku = (
@@ -737,19 +556,12 @@ export async function update(req, res) {
         WHERE sku=?
         AND id<>?
         `,
-        [
-          sku,
-          variantId,
-        ]
+        [sku, variantId],
       )
     )[0];
 
     if (duplicateSku) {
-      return fail(
-        res,
-        "SKU already exists.",
-        422
-      );
+      return fail(res, "SKU already exists.", 422);
     }
 
     /*
@@ -768,21 +580,12 @@ export async function update(req, res) {
         AND color_id=?
         AND id<>?
         `,
-        [
-          old.product_id,
-          sizeId,
-          colorId,
-          variantId,
-        ]
+        [old.product_id, sizeId, colorId, variantId],
       )
     )[0];
 
     if (duplicateCombination) {
-      return fail(
-        res,
-        "This size and color combination already exists.",
-        422
-      );
+      return fail(res, "This size and color combination already exists.", 422);
     }
 
     /*
@@ -806,15 +609,7 @@ export async function update(req, res) {
 
       WHERE id=?
       `,
-      [
-        sizeId,
-        colorId,
-        sku,
-        mrp,
-        sellingPrice,
-        status,
-        variantId,
-      ]
+      [sizeId, colorId, sku, mrp, sellingPrice, status, variantId],
     );
 
     /*
@@ -835,29 +630,19 @@ export async function update(req, res) {
         WHERE product_variant_id=?
         LIMIT 1
         `,
-        [variantId]
+        [variantId],
       )
     )[0];
 
-    const quantity =
-      Math.max(
-        0,
-        Number(
-          x.quantity ??
-            existingInventory?.quantity ??
-            0
-        )
-      );
+    const quantity = Math.max(
+      0,
+      Number(x.quantity ?? existingInventory?.quantity ?? 0),
+    );
 
-    const lowStockLimit =
-      Math.max(
-        0,
-        Number(
-          x.low_stock_limit ??
-            existingInventory?.low_stock_limit ??
-            5
-        )
-      );
+    const lowStockLimit = Math.max(
+      0,
+      Number(x.low_stock_limit ?? existingInventory?.low_stock_limit ?? 5),
+    );
 
     if (existingInventory) {
       await query(
@@ -871,11 +656,7 @@ export async function update(req, res) {
 
         WHERE product_variant_id=?
         `,
-        [
-          quantity,
-          lowStockLimit,
-          variantId,
-        ]
+        [quantity, lowStockLimit, variantId],
       );
     } else {
       await query(
@@ -892,11 +673,7 @@ export async function update(req, res) {
         VALUES
         (?, ?, 0, ?, NOW(), NOW())
         `,
-        [
-          variantId,
-          quantity,
-          lowStockLimit,
-        ]
+        [variantId, quantity, lowStockLimit],
       );
     }
 
@@ -913,36 +690,23 @@ export async function update(req, res) {
 
         WHERE pv.id=?
         `,
-        [variantId]
+        [variantId],
       )
     )[0];
 
     return ok(res, {
       success: true,
 
-      message:
-        "Variant updated successfully.",
+      message: "Variant updated successfully.",
 
-      data:
-        normalizeVariant(
-          updated
-        ),
+      data: normalizeVariant(updated),
     });
   } catch (error) {
-    console.error(
-      "Variant update error:",
-      error
-    );
+    console.error("Variant update error:", error);
 
-    return fail(
-      res,
-      error?.message ||
-        "Unable to update variant.",
-      500
-    );
+    return fail(res, error?.message || "Unable to update variant.", 500);
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -952,15 +716,10 @@ export async function update(req, res) {
 
 export async function destroy(req, res) {
   try {
-    const variantId =
-      Number(req.params.id);
+    const variantId = Number(req.params.id);
 
     if (!variantId) {
-      return fail(
-        res,
-        "Invalid variant ID.",
-        422
-      );
+      return fail(res, "Invalid variant ID.", 422);
     }
 
     const variant = (
@@ -970,16 +729,12 @@ export async function destroy(req, res) {
         FROM product_variants
         WHERE id=?
         `,
-        [variantId]
+        [variantId],
       )
     )[0];
 
     if (!variant) {
-      return fail(
-        res,
-        "Variant not found.",
-        404
-      );
+      return fail(res, "Variant not found.", 404);
     }
 
     /*
@@ -993,7 +748,7 @@ export async function destroy(req, res) {
       DELETE FROM inventory_movements
       WHERE product_variant_id=?
       `,
-      [variantId]
+      [variantId],
     );
 
     /*
@@ -1007,7 +762,7 @@ export async function destroy(req, res) {
       DELETE FROM inventories
       WHERE product_variant_id=?
       `,
-      [variantId]
+      [variantId],
     );
 
     /*
@@ -1021,26 +776,17 @@ export async function destroy(req, res) {
       DELETE FROM product_variants
       WHERE id=?
       `,
-      [variantId]
+      [variantId],
     );
 
     return ok(res, {
       success: true,
 
-      message:
-        "Variant deleted successfully.",
+      message: "Variant deleted successfully.",
     });
   } catch (error) {
-    console.error(
-      "Variant delete error:",
-      error
-    );
+    console.error("Variant delete error:", error);
 
-    return fail(
-      res,
-      error?.message ||
-        "Unable to delete variant.",
-      500
-    );
+    return fail(res, error?.message || "Unable to delete variant.", 500);
   }
 }

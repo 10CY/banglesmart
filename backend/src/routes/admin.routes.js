@@ -17,6 +17,9 @@ import * as returns from "../controllers/admin/return.controller.js";
 import * as newsletter from "../controllers/admin/newsletter.controller.js";
 import * as audit from "../controllers/admin/audit.controller.js";
 import * as notification from "../controllers/admin/notification.controller.js";
+import * as design from "../controllers/admin/design.controller.js";
+import * as carts from "../controllers/admin/cart.controller.js";
+import * as wishlists from "../controllers/admin/wishlist.controller.js";
 
 import { auth as guard } from "../middleware/auth.js";
 import { imageUpload } from "../middleware/upload.js";
@@ -244,6 +247,23 @@ r.delete(
 
 /*
 |--------------------------------------------------------------------------
+| PRODUCT DESIGN OPTIONS
+|--------------------------------------------------------------------------
+*/
+r.get("/products/:product/design-options", design.index);
+r.post("/products/:product/design-options", design.store);
+r.put("/design-options/:id", design.update);
+r.delete("/design-options/:id", design.destroy);
+r.post(
+  "/design-options/:id/images",
+  imageUpload("designs").single("image"),
+  design.uploadImage,
+);
+r.delete("/design-option-images/:id", design.deleteImage);
+r.put("/design-option-images/:id/primary", design.primaryImage);
+
+/*
+|--------------------------------------------------------------------------
 | INVENTORY
 |--------------------------------------------------------------------------
 */
@@ -288,6 +308,12 @@ r.put(
   "/customers/:id/status",
   cust.updateStatus,
 );
+
+/* CUSTOMER CARTS / WISHLISTS */
+r.get("/carts", carts.index);
+r.get("/carts/:id", carts.show);
+r.get("/wishlists", wishlists.index);
+r.get("/wishlists/:id", wishlists.show);
 
 /*
 |--------------------------------------------------------------------------

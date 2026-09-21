@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   FormEvent,
   useCallback,
@@ -26,6 +28,8 @@ type Color = {
 };
 
 export default function ColorsPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   const [colors, setColors] = useState<Color[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -198,9 +202,12 @@ export default function ColorsPage() {
   */
 
   async function deleteColor(id: number) {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this color?"
-    );
+    const confirmDelete = await confirm({
+      title: "Delete color?",
+      description: "Delete this color from the catalog? Products already using it may prevent deletion.",
+      confirmLabel: "Delete color",
+      tone: "danger",
+    });
 
     if (!confirmDelete) {
       return;
@@ -217,18 +224,14 @@ export default function ColorsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        window.alert(
-          data.message || "Unable to delete color."
-        );
+        toast(data.message || "Unable to delete color.", "error");
 
         return;
       }
 
       await fetchColors();
     } catch {
-      window.alert(
-        "Unable to connect to the server."
-      );
+      toast("Unable to connect to the server.", "error");
     }
   }
 

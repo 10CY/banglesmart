@@ -8,14 +8,5 @@ export function imageUrl(v) {
     return v;
   }
 
-  const clean = String(v).replace(/^\/+/, "");
-
-  if (env.CLOUDINARY_CLOUD_NAME) {
-    const pathWithFolder = clean.startsWith("banglesmart/")
-      ? clean
-      : `banglesmart/${clean}`;
-    return `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/${pathWithFolder}`;
-  }
-
-  return `${env.BACKEND_URL}/storage/${clean}`;
-}
+  return `${env.BACKEND_URL}/storage/${String(v).replace(/^\/+/, "")}`;
+}

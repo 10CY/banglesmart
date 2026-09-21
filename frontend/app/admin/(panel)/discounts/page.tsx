@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   FormEvent,
   useCallback,
@@ -131,6 +133,8 @@ const defaultForm: CouponForm = {
 /* -------------------------------------------------------------------------- */
 
 export default function DiscountsPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   /* ------------------------------------------------------------------------ */
   /* Data                                                                     */
   /* ------------------------------------------------------------------------ */
@@ -815,10 +819,12 @@ export default function DiscountsPage() {
   async function deleteCoupon(
     coupon: Coupon
   ) {
-    const confirmed =
-      window.confirm(
-        `Delete coupon "${coupon.code}"?`
-      );
+    const confirmed = await confirm({
+      title: "Delete coupon?",
+      description: `Delete coupon "${coupon.code}" permanently?`,
+      confirmLabel: "Delete coupon",
+      tone: "danger",
+    });
 
     if (!confirmed) {
       return;
@@ -837,19 +843,14 @@ export default function DiscountsPage() {
         await response.json();
 
       if (!response.ok) {
-        window.alert(
-          data.message ||
-            "Unable to delete coupon."
-        );
+        toast(data.message || "Unable to delete coupon.", "error");
 
         return;
       }
 
       await loadCoupons();
     } catch {
-      window.alert(
-        "Unable to connect to server."
-      );
+      toast("Unable to connect to server.", "error");
     }
   }
 
@@ -923,19 +924,14 @@ export default function DiscountsPage() {
         await response.json();
 
       if (!response.ok) {
-        window.alert(
-          data.message ||
-            "Unable to update coupon."
-        );
+        toast(data.message || "Unable to update coupon.", "error");
 
         return;
       }
 
       await loadCoupons();
     } catch {
-      window.alert(
-        "Unable to connect to server."
-      );
+      toast("Unable to connect to server.", "error");
     }
   }
 

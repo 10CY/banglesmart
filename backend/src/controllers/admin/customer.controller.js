@@ -207,6 +207,7 @@ export async function show(req, res) {
             name,
             email,
             phone,
+            phone_verified_at,
             role,
             status,
             created_at,
@@ -263,6 +264,28 @@ export async function show(req, res) {
       [id],
     );
 
+    const activeCart = (
+      await query(
+        `SELECT c.id,c.status,c.updated_at,COALESCE(SUM(ci.quantity),0) AS item_count,COALESCE(SUM(ci.quantity*pv.selling_price),0) AS cart_value
+         FROM carts c
+         LEFT JOIN cart_items ci ON ci.cart_id=c.id
+         LEFT JOIN product_variants pv ON pv.id=ci.product_variant_id
+         WHERE c.user_id=? AND c.status='active'
+         GROUP BY c.id
+         ORDER BY c.id DESC LIMIT 1`,
+        [id],
+      )
+    )[0] || null;
+
+    const wishlist = (
+      await query(
+        `SELECT w.id,COUNT(wi.id) AS item_count,MAX(wi.updated_at) AS updated_at
+         FROM wishlists w LEFT JOIN wishlist_items wi ON wi.wishlist_id=w.id
+         WHERE w.user_id=? GROUP BY w.id LIMIT 1`,
+        [id],
+      )
+    )[0] || null;
+
     const summary = (
       await query(
         `
@@ -300,6 +323,8 @@ export async function show(req, res) {
           ...order,
           items_count: Number(order.items_count || 0),
         })),
+        cart: activeCart ? { ...activeCart, id: Number(activeCart.id), item_count: Number(activeCart.item_count || 0), cart_value: Number(activeCart.cart_value || 0) } : null,
+        wishlist: wishlist ? { ...wishlist, id: Number(wishlist.id), item_count: Number(wishlist.item_count || 0) } : null,
         summary: {
           orders_count: Number(summary.orders_count || 0),
           total_spent: Number(summary.total_spent || 0),
@@ -358,13 +383,6 @@ export async function update(req, res) {
       );
     }
 
-    if (!x.email || !String(x.email).trim()) {
-      return fail(
-        res,
-        "Email is required.",
-        422,
-      );
-    }
 
     await query(
       `
@@ -379,7 +397,7 @@ export async function update(req, res) {
       `,
       [
         String(x.name).trim(),
-        String(x.email).trim(),
+        x.email && String(x.email).trim() ? String(x.email).trim().toLowerCase() : null,
         x.phone
           ? String(x.phone).trim()
           : null,
@@ -488,6 +506,7 @@ export async function updateStatus(req, res) {
             name,
             email,
             phone,
+            phone_verified_at,
             role,
             status,
             created_at,

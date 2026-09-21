@@ -1,10 +1,8 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
-import { customerApiFetch } from "@/lib/customerApi";
 
 import { useStoreCatalog } from "@/components/store/StoreCatalogProvider";
 
@@ -12,21 +10,7 @@ import DesktopHeader from "./DesktopHeader";
 
 import MobileHeader from "./MobileHeader";
 
-import type { Customer } from "./HeaderShared";
-
-type CountResponse = {
-  data?:
-    | {
-        items?: unknown[];
-        item_count?: number;
-      }
-    | unknown[];
-};
-
-type RefreshDetail = {
-  cartCount?: number;
-  wishlistDelta?: number;
-};
+import { useCommerce } from "@/features/commerce/CommerceProvider";
 
 const mainNavigation = [
   {
@@ -119,203 +103,16 @@ function HeaderContent() {
   const [search, setSearch] = useState("");
 
   /* ========================================================= */
-  /* CUSTOMER */
+  /* CENTRALIZED CUSTOMER COMMERCE STATE */
   /* ========================================================= */
 
-  const [customer, setCustomer] = useState<Customer | null>(null);
-
-  const [cartCount, setCartCount] = useState(0);
-
-  const [wishlistCount, setWishlistCount] = useState(0);
-
-  const [loadingCustomer, setLoadingCustomer] = useState(true);
-
-  /* ========================================================= */
-  /* LOAD CUSTOMER DATA */
-  /* ========================================================= */
-
-  const loadCustomerData = useCallback(async () => {
-    const token = localStorage.getItem("customer_token");
-
-    /* NOT LOGGED IN */
-
-    if (!token) {
-      setCustomer(null);
-
-      setCartCount(0);
-
-      setWishlistCount(0);
-
-      setLoadingCustomer(false);
-
-      return;
-    }
-
-    try {
-      /*
-        ---------------------------------------------------------
-        LOAD STORED USER FIRST
-        ---------------------------------------------------------
-        */
-
-      const stored = localStorage.getItem("customer_user");
-
-      if (stored) {
-        try {
-          setCustomer(JSON.parse(stored));
-        } catch {
-          localStorage.removeItem("customer_user");
-        }
-      }
-
-      /*
-        ---------------------------------------------------------
-        LOAD API DATA
-        ---------------------------------------------------------
-        */
-
-      const [meResponse, cartResponse, wishlistResponse] =
-        await Promise.allSettled([
-          customerApiFetch("/customer/me"),
-
-          customerApiFetch("/customer/cart"),
-
-          customerApiFetch("/customer/wishlist"),
-        ]);
-
-      /*
-        ---------------------------------------------------------
-        CUSTOMER
-        ---------------------------------------------------------
-        */
-
-      if (meResponse.status === "fulfilled" && meResponse.value.ok) {
-        const json = await meResponse.value.json();
-
-        const data = json?.data || json?.user || json;
-
-        setCustomer(data);
-
-        localStorage.setItem("customer_user", JSON.stringify(data));
-      }
-
-      /*
-        ---------------------------------------------------------
-        CART
-        ---------------------------------------------------------
-        */
-
-      if (cartResponse.status === "fulfilled" && cartResponse.value.ok) {
-        const json = (await cartResponse.value.json()) as CountResponse;
-
-        const data = json?.data as
-          | {
-              items?: unknown[];
-              item_count?: number;
-            }
-          | undefined;
-
-        setCartCount(
-          typeof data?.item_count === "number"
-            ? data.item_count
-            : Array.isArray(data?.items)
-              ? data.items.length
-              : 0,
-        );
-      }
-
-      /*
-        ---------------------------------------------------------
-        WISHLIST
-        ---------------------------------------------------------
-        */
-
-      if (
-        wishlistResponse.status === "fulfilled" &&
-        wishlistResponse.value.ok
-      ) {
-        const json = (await wishlistResponse.value.json()) as CountResponse;
-
-        const data = json?.data as
-          | {
-              items?: unknown[];
-              item_count?: number;
-            }
-          | unknown[]
-          | undefined;
-
-        if (Array.isArray(data)) {
-          setWishlistCount(data.length);
-        } else {
-          setWishlistCount(
-            typeof data?.item_count === "number"
-              ? data.item_count
-              : Array.isArray(data?.items)
-                ? data.items.length
-                : 0,
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load header data:", error);
-    } finally {
-      setLoadingCustomer(false);
-    }
-  }, []);
-
-  /* ========================================================= */
-  /* LOAD DATA + REFRESH EVENTS */
-  /* ========================================================= */
-
-  useEffect(() => {
-    void loadCustomerData();
-
-    const refresh = (event: Event) => {
-      const detail = (event as CustomEvent<RefreshDetail>).detail;
-
-      /*
-        ---------------------------------------------------------
-        INSTANT CART UPDATE
-        ---------------------------------------------------------
-        */
-
-      if (detail?.cartCount !== undefined) {
-        setCartCount(Math.max(0, detail.cartCount));
-      }
-
-      /*
-        ---------------------------------------------------------
-        INSTANT WISHLIST UPDATE
-        ---------------------------------------------------------
-        */
-
-      if (detail?.wishlistDelta !== undefined) {
-        setWishlistCount((current) =>
-          Math.max(0, current + detail.wishlistDelta!),
-        );
-      }
-
-      /*
-        ---------------------------------------------------------
-        REFRESH ACTUAL DATA
-        ---------------------------------------------------------
-        */
-
-      void loadCustomerData();
-    };
-
-    const storageRefresh = () => void loadCustomerData();
-
-    window.addEventListener("banglesmart:customer-refresh", refresh);
-
-    window.addEventListener("storage", storageRefresh);
-
-    return () => {
-      window.removeEventListener("banglesmart:customer-refresh", refresh);
-
-      window.removeEventListener("storage", storageRefresh);
-    };
-  }, [loadCustomerData]);
+  const {
+    customer,
+    cartCount,
+    wishlistCount,
+    loadingCustomer,
+    signOut,
+  } = useCommerce();
 
   /* ========================================================= */
   /* CLOSE DESKTOP MENUS ON ROUTE CHANGE */
@@ -565,23 +362,9 @@ function HeaderContent() {
   /* ========================================================= */
 
   function handleLogout() {
-    localStorage.removeItem("customer_token");
-
-    localStorage.removeItem("customer_user");
-
-    setCustomer(null);
-
-    setCartCount(0);
-
-    setWishlistCount(0);
-
     setAccountOpen(false);
-
     closeMobileMenu();
-
-    window.dispatchEvent(new Event("banglesmart:customer-refresh"));
-
-    router.push("/login");
+    signOut();
   }
 
   /* ========================================================= */

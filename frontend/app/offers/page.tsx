@@ -52,7 +52,7 @@ export default function OffersPage() {
 
       setProducts(offers);
     } catch (error) {
-      console.log("Offers loading error", error);
+      console.error("Offers loading error", error);
       setProducts([]);
     } finally {
       setLoading(false);

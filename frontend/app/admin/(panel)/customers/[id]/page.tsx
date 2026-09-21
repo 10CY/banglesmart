@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   FormEvent,
   useEffect,
@@ -117,6 +119,8 @@ function statusClass(status: string) {
 }
 
 export default function CustomerDetailsPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   const params = useParams();
 
   const customerId = String(params.id);
@@ -288,12 +292,15 @@ export default function CustomerDetailsPage() {
       return;
     }
 
-    const confirmed =
-      window.confirm(
+    const confirmed = await confirm({
+      title: newStatus === "inactive" ? "Deactivate customer?" : "Activate customer?",
+      description:
         newStatus === "inactive"
-          ? "Deactivate this customer account?"
-          : "Activate this customer account?"
-      );
+          ? "This customer will no longer be able to use the account until it is reactivated."
+          : "This customer will regain access to the account.",
+      confirmLabel: newStatus === "inactive" ? "Deactivate" : "Activate",
+      tone: newStatus === "inactive" ? "danger" : "default",
+    });
 
     if (!confirmed) {
       return;
@@ -323,10 +330,9 @@ export default function CustomerDetailsPage() {
 
       await loadCustomer();
     } catch (err) {
-      window.alert(
-        err instanceof Error
-          ? err.message
-          : "Unable to connect to server."
+      toast(
+        err instanceof Error ? err.message : "Unable to connect to server.",
+        "error",
       );
     }
   }

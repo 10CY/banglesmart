@@ -10,7 +10,7 @@ export function auth(requiredRole = null) {
       const token = h.slice(7);
       const p = jwt.verify(token, env.JWT_SECRET);
       const rows = await query(
-        "SELECT id,name,email,phone,role,status,created_at FROM users WHERE id=? LIMIT 1",
+        "SELECT id,name,email,phone,phone_verified_at,role,status,created_at FROM users WHERE id=? LIMIT 1",
         [p.sub],
       );
       const user = rows[0];

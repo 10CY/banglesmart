@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Pencil, Trash2, Package } from "lucide-react";
@@ -35,6 +37,8 @@ type Product = {
 };
 
 export default function ProductsPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
@@ -153,9 +157,12 @@ export default function ProductsPage() {
   */
 
   async function deleteProduct(id: number) {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this product?",
-    );
+    const confirmDelete = await confirm({
+      title: "Delete product?",
+      description: "This permanently removes the product and its dependent catalog data. This action cannot be undone.",
+      confirmLabel: "Delete product",
+      tone: "danger",
+    });
 
     if (!confirmDelete) {
       return;
@@ -169,7 +176,7 @@ export default function ProductsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        window.alert(data?.message || "Unable to delete product.");
+        toast(data?.message || "Unable to delete product.", "error");
 
         return;
       }
@@ -178,7 +185,7 @@ export default function ProductsPage() {
     } catch (error) {
       console.error(error);
 
-      window.alert("Unable to connect to server.");
+      toast("Unable to connect to server.", "error");
     }
   }
 

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Image as ImageIcon } from "lucide-react";
 import { storeApiFetch } from "@/lib/storeApi";
-import { getProductImageUrl } from "@/lib/image";
 
 type Category = {
   id: number;
@@ -15,14 +14,35 @@ type Category = {
   children?: Category[];
 };
 
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+
 /* -------------------------------------------------------------------------- */
 /* IMAGE URL                                                                  */
 /* -------------------------------------------------------------------------- */
 
 function getCategoryImage(category: Category): string {
-  const raw = category.image_url || category.image;
-  if (!raw) return "";
-  return getProductImageUrl(raw) || "";
+  if (category.image_url) {
+    return category.image_url;
+  }
+
+  if (!category.image) {
+    return "";
+  }
+
+  const image = category.image.trim();
+
+  if (!image) {
+    return "";
+  }
+
+  if (image.startsWith("http://") || image.startsWith("https://")) {
+    return image;
+  }
+
+  const cleanImage = image.replace(/^\/+/, "");
+
+  return `${BACKEND_URL}/storage/${cleanImage}`;
 }
 
 /* -------------------------------------------------------------------------- */

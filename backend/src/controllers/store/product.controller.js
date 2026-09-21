@@ -1,6 +1,7 @@
 import { query } from "../../db.js";
 import { ok, fail } from "../../utils/http.js";
 import { imageUrl } from "../../utils/serialize.js";
+import { getProductDesignOptions } from "../../services/product.service.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -25,14 +26,13 @@ function product(p, images = []) {
     |--------------------------------------------------------------------------
     */
 
-    category:
-      p.category_id
-        ? {
-            id: Number(p.category_id),
-            name: p.category_name || "",
-            slug: p.category_slug || "",
-          }
-        : null,
+    category: p.category_id
+      ? {
+          id: Number(p.category_id),
+          name: p.category_name || "",
+          slug: p.category_slug || "",
+        }
+      : null,
 
     /*
     |--------------------------------------------------------------------------
@@ -40,44 +40,69 @@ function product(p, images = []) {
     |--------------------------------------------------------------------------
     */
 
-    material:
-      p.material_id
-        ? {
-            id: Number(p.material_id),
-            name: p.material_name || "",
-          }
-        : null,
+    material: p.material_id
+      ? {
+          id: Number(p.material_id),
+          name: p.material_name || "",
+        }
+      : null,
 
     /*
     |--------------------------------------------------------------------------
     | Primary image
+    |--------------------------------------------------------------------------
+    |
+    | Prefer a generic primary image.
+    |
+    | A generic image has color_id = NULL and can be used as fallback
+    | when no specific color has been selected yet.
+    |
     |--------------------------------------------------------------------------
     */
 
     primary_image:
       images.find(
         (x) =>
-          Number(x.is_primary) === 1 ||
-          x.is_primary === true
+          (x.color_id === null || x.color_id === undefined) &&
+          (Number(x.is_primary) === 1 || x.is_primary === true),
       ) ||
+      images.find((x) => x.color_id === null || x.color_id === undefined) ||
+      images.find((x) => Number(x.is_primary) === 1 || x.is_primary === true) ||
       images[0] ||
       null,
 
     /*
     |--------------------------------------------------------------------------
-    | Images
+    | Product images
     |--------------------------------------------------------------------------
     */
 
     images: images.map((i) => ({
       id: Number(i.id),
+
       product_id: Number(i.product_id),
+
+      /*
+      |--------------------------------------------------------------------------
+      | IMPORTANT
+      |
+      | color_id lets the frontend know which color this image belongs to.
+      |
+      | NULL = General / all colors
+      |
+      |--------------------------------------------------------------------------
+      */
+
+      color_id:
+        i.color_id !== null && i.color_id !== undefined
+          ? Number(i.color_id)
+          : null,
+
       image: i.image,
+
       alt_text: i.alt_text || null,
 
-      is_primary:
-        Number(i.is_primary) === 1 ||
-        i.is_primary === true,
+      is_primary: Number(i.is_primary) === 1 || i.is_primary === true,
 
       sort_order: Number(i.sort_order || 0),
 
@@ -88,41 +113,34 @@ function product(p, images = []) {
 
 /*
 |--------------------------------------------------------------------------
-| Serialize variants
+| Serialize variant
 |--------------------------------------------------------------------------
 */
 
 function serializeVariant(v) {
   const quantity =
-    v.quantity === null ||
-    v.quantity === undefined
-      ? 0
-      : Number(v.quantity);
+    v.quantity === null || v.quantity === undefined ? 0 : Number(v.quantity);
 
   const reservedQuantity =
-    v.reserved_quantity === null ||
-    v.reserved_quantity === undefined
+    v.reserved_quantity === null || v.reserved_quantity === undefined
       ? 0
       : Number(v.reserved_quantity);
 
-  const availableQuantity =
-    Math.max(
-      0,
-      quantity - reservedQuantity
-    );
+  const availableQuantity = Math.max(0, quantity - reservedQuantity);
 
   return {
     id: Number(v.id),
 
-    size_id:
-      v.size_id !== null &&
-      v.size_id !== undefined
-        ? Number(v.size_id)
+    product_id:
+      v.product_id !== null && v.product_id !== undefined
+        ? Number(v.product_id)
         : null,
 
+    size_id:
+      v.size_id !== null && v.size_id !== undefined ? Number(v.size_id) : null,
+
     color_id:
-      v.color_id !== null &&
-      v.color_id !== undefined
+      v.color_id !== null && v.color_id !== undefined
         ? Number(v.color_id)
         : null,
 
@@ -130,53 +148,58 @@ function serializeVariant(v) {
 
     mrp: Number(v.mrp || 0),
 
-    selling_price:
-      Number(v.selling_price || 0),
+    selling_price: Number(v.selling_price || 0),
 
-    status:
-      v.status || "active",
+    status: v.status || "active",
 
-    size:
-      v.size_id
-        ? {
-            id: Number(v.size_id),
-            name: v.size_name || "",
-            display_name:
-              v.size_display_name ||
-              v.size_name ||
-              null,
-          }
-        : null,
+    /*
+    |--------------------------------------------------------------------------
+    | Size
+    |--------------------------------------------------------------------------
+    */
 
-    color:
-      v.color_id
-        ? {
-            id: Number(v.color_id),
-            name: v.color_name || "",
-            display_name:
-              v.color_display_name ||
-              v.color_name ||
-              null,
+    size: v.size_id
+      ? {
+          id: Number(v.size_id),
 
-            hex_code:
-              v.color_hex_code ||
-              v.hex_code ||
-              null,
-          }
-        : null,
+          name: v.size_name || "",
+
+          display_name: v.size_display_name || v.size_name || null,
+        }
+      : null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Color
+    |--------------------------------------------------------------------------
+    */
+
+    color: v.color_id
+      ? {
+          id: Number(v.color_id),
+
+          name: v.color_name || "",
+
+          display_name: v.color_display_name || v.color_name || null,
+
+          hex_code: v.color_hex_code || v.hex_code || null,
+        }
+      : null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Inventory
+    |--------------------------------------------------------------------------
+    */
 
     inventory:
-      v.inventory_id ||
-      v.quantity !== null ||
-      v.reserved_quantity !== null
+      v.inventory_id || v.quantity !== null || v.reserved_quantity !== null
         ? {
             quantity,
 
-            reserved_quantity:
-              reservedQuantity,
+            reserved_quantity: reservedQuantity,
 
-            available_quantity:
-              availableQuantity,
+            available_quantity: availableQuantity,
           }
         : null,
   };
@@ -193,8 +216,10 @@ export async function index(req, res) {
     let sql = `
       SELECT
         p.*,
+
         c.name AS category_name,
         c.slug AS category_slug,
+
         m.name AS material_name
 
       FROM products p
@@ -208,7 +233,7 @@ export async function index(req, res) {
       WHERE p.status = 'active'
     `;
 
-    const ps = [];
+    const params = [];
 
     /*
     |--------------------------------------------------------------------------
@@ -216,7 +241,7 @@ export async function index(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    if (req.query.search) {
+    if (req.query.search && String(req.query.search).trim()) {
       sql += `
         AND (
           p.name LIKE ?
@@ -225,19 +250,14 @@ export async function index(req, res) {
         )
       `;
 
-      const s =
-        `%${req.query.search}%`;
+      const search = `%${String(req.query.search).trim()}%`;
 
-      ps.push(
-        s,
-        s,
-        s
-      );
+      params.push(search, search, search);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Category
+    | Category by ID
     |--------------------------------------------------------------------------
     */
 
@@ -246,101 +266,104 @@ export async function index(req, res) {
         AND p.category_id = ?
       `;
 
-      ps.push(
-        req.query.category_id
-      );
+      params.push(req.query.category_id);
     } else if (req.query.category) {
-      const categoryRows =
-        await query(
-          `
+      /*
+      |--------------------------------------------------------------------------
+      | Category by slug
+      |--------------------------------------------------------------------------
+      */
+
+      const categoryRows = await query(
+        `
             SELECT id
+
             FROM categories
+
             WHERE slug = ?
               AND status = 'active'
+
             LIMIT 1
           `,
-          [req.query.category]
-        );
+        [req.query.category],
+      );
 
-      if (
-        categoryRows.length === 0
-      ) {
+      if (categoryRows.length === 0) {
         return ok(res, {
           success: true,
+
           data: [],
+
           meta: {
             total: 0,
           },
         });
       }
 
-      const categoryId =
-        Number(
-          categoryRows[0].id
-        );
+      const categoryId = Number(categoryRows[0].id);
+
+      /*
+      |--------------------------------------------------------------------------
+      | Include root category + immediate child categories
+      |--------------------------------------------------------------------------
+      */
 
       sql += `
         AND (
           p.category_id = ?
+
           OR p.category_id IN (
             SELECT id
+
             FROM categories
+
             WHERE parent_id = ?
               AND status = 'active'
           )
         )
       `;
 
-      ps.push(
-        categoryId,
-        categoryId
-      );
+      params.push(categoryId, categoryId);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Price
+    | Minimum price
     |--------------------------------------------------------------------------
     */
 
-    if (req.query.min_price) {
+    if (req.query.min_price !== undefined && req.query.min_price !== "") {
       sql += `
         AND p.selling_price >= ?
       `;
 
-      ps.push(
-        req.query.min_price
-      );
-    }
-
-    if (req.query.max_price) {
-      sql += `
-        AND p.selling_price <= ?
-      `;
-
-      ps.push(
-        req.query.max_price
-      );
+      params.push(req.query.min_price);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Flags
+    | Maximum price
     |--------------------------------------------------------------------------
     */
 
-    for (const f of [
-      "featured",
-      "best_seller",
-      "new_arrival",
-    ]) {
-      if (
-        ["1", "true"].includes(
-          String(req.query[f])
-        )
-      ) {
+    if (req.query.max_price !== undefined && req.query.max_price !== "") {
+      sql += `
+        AND p.selling_price <= ?
+      `;
+
+      params.push(req.query.max_price);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Product flags
+    |--------------------------------------------------------------------------
+    */
+
+    for (const field of ["featured", "best_seller", "new_arrival"]) {
+      if (["1", "true"].includes(String(req.query[field]).toLowerCase())) {
         sql += `
-          AND p.${f} = 1
+          AND p.${field} = 1
         `;
       }
     }
@@ -370,32 +393,41 @@ export async function index(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const rows =
-      await query(
-        sql,
-        ps
-      );
+    const rows = await query(sql, params);
 
     /*
     |--------------------------------------------------------------------------
-    | Images
+    | Load images
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | We return every image, including:
+    |
+    | color_id = NULL       → General
+    | color_id = Pink ID    → Pink
+    | color_id = Black ID   → Black
+    | color_id = Maroon ID  → Maroon
+    |
     |--------------------------------------------------------------------------
     */
 
-    for (const p of rows) {
-      p.images =
-        await query(
-          `
+    for (const row of rows) {
+      row.images = await query(
+        `
             SELECT *
+
             FROM product_images
+
             WHERE product_id = ?
+
             ORDER BY
               is_primary DESC,
-              sort_order,
-              id
+              sort_order ASC,
+              id ASC
           `,
-          [p.id]
-        );
+        [row.id],
+      );
     }
 
     /*
@@ -407,30 +439,16 @@ export async function index(req, res) {
     return ok(res, {
       success: true,
 
-      data: rows.map(
-        (p) =>
-          product(
-            p,
-            p.images
-          )
-      ),
+      data: rows.map((row) => product(row, row.images)),
 
       meta: {
-        total:
-          rows.length,
+        total: rows.length,
       },
     });
   } catch (error) {
-    console.error(
-      "Store products error:",
-      error
-    );
+    console.error("Store products error:", error);
 
-    return fail(
-      res,
-      "Unable to load products.",
-      500
-    );
+    return fail(res, "Unable to load products.", 500);
   }
 }
 
@@ -448,70 +466,72 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const p =
-      (
-        await query(
-          `
-            SELECT
-              p.*,
-              c.name AS category_name,
-              c.slug AS category_slug,
-              m.name AS material_name
+    const productRows = await query(
+      `
+          SELECT
+            p.*,
 
-            FROM products p
+            c.name AS category_name,
+            c.slug AS category_slug,
 
-            LEFT JOIN categories c
-              ON c.id = p.category_id
+            m.name AS material_name
 
-            LEFT JOIN materials m
-              ON m.id = p.material_id
+          FROM products p
 
-            WHERE p.slug = ?
-              AND p.status = 'active'
+          LEFT JOIN categories c
+            ON c.id = p.category_id
 
-            LIMIT 1
-          `,
-          [req.params.slug]
-        )
-      )[0];
+          LEFT JOIN materials m
+            ON m.id = p.material_id
 
-    if (!p) {
-      return fail(
-        res,
-        "Product not found.",
-        404
-      );
+          WHERE p.slug = ?
+            AND p.status = 'active'
+
+          LIMIT 1
+        `,
+      [req.params.slug],
+    );
+
+    const currentProduct = productRows[0];
+
+    if (!currentProduct) {
+      return fail(res, "Product not found.", 404);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Images
+    | Product Images
+    |--------------------------------------------------------------------------
+    |
+    | color_id is now included automatically because we SELECT *.
+    |
     |--------------------------------------------------------------------------
     */
 
-    const images =
-      await query(
-        `
+    const images = await query(
+      `
           SELECT *
+
           FROM product_images
+
           WHERE product_id = ?
+
           ORDER BY
             is_primary DESC,
-            sort_order,
-            id
+            sort_order ASC,
+            id ASC
         `,
-        [p.id]
-      );
+      [currentProduct.id],
+    );
 
     /*
     |--------------------------------------------------------------------------
-    | Variants
+    | Product Variants
     |--------------------------------------------------------------------------
     */
 
-    const variantRows =
-      await query(
-        `
+    const variantRows = await query(
+      `
           SELECT
             pv.id,
             pv.product_id,
@@ -550,13 +570,24 @@ export async function show(req, res) {
           ORDER BY
             pv.id ASC
         `,
-        [p.id]
-      );
+      [currentProduct.id],
+    );
 
-    const variants =
-      variantRows.map(
-        serializeVariant
-      );
+    const variants = variantRows.map(serializeVariant);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Design Options
+    |--------------------------------------------------------------------------
+    |
+    | product_design_images now also returns color_id.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    const designOptions = await getProductDesignOptions(currentProduct.id, {
+      activeOnly: true,
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -564,9 +595,8 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    const reviews =
-      await query(
-        `
+    const reviews = await query(
+      `
           SELECT
             r.*,
             u.name AS user_name
@@ -582,18 +612,17 @@ export async function show(req, res) {
           ORDER BY
             r.id DESC
         `,
-        [p.id]
-      );
+      [currentProduct.id],
+    );
 
     /*
     |--------------------------------------------------------------------------
-    | Review statistics
+    | Review Statistics
     |--------------------------------------------------------------------------
     */
 
-    const reviewStats =
-      await query(
-        `
+    const reviewStats = await query(
+      `
           SELECT
             COUNT(*) AS review_count,
 
@@ -607,20 +636,12 @@ export async function show(req, res) {
           WHERE product_id = ?
             AND status = 'approved'
         `,
-        [p.id]
-      );
+      [currentProduct.id],
+    );
 
-    const reviewCount =
-      Number(
-        reviewStats[0]?.review_count ||
-          0
-      );
+    const reviewCount = Number(reviewStats[0]?.review_count || 0);
 
-    const reviewAverage =
-      Number(
-        reviewStats[0]?.review_average ||
-          0
-      );
+    const reviewAverage = Number(reviewStats[0]?.review_average || 0);
 
     /*
     |--------------------------------------------------------------------------
@@ -628,13 +649,11 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    let recommended =
-      [];
+    let recommended = [];
 
-    if (p.category_id) {
-      const recommendedRows =
-        await query(
-          `
+    if (currentProduct.category_id) {
+      const recommendedRows = await query(
+        `
             SELECT
               p.*,
 
@@ -652,7 +671,9 @@ export async function show(req, res) {
               ON m.id = p.material_id
 
             WHERE p.status = 'active'
+
               AND p.category_id = ?
+
               AND p.id <> ?
 
             ORDER BY
@@ -663,43 +684,36 @@ export async function show(req, res) {
 
             LIMIT 4
           `,
-          [
-            p.category_id,
-            p.id,
-          ]
-        );
+        [currentProduct.category_id, currentProduct.id],
+      );
 
-      for (
-        const recommendation
-        of recommendedRows
-      ) {
-        recommendation.images =
-          await query(
-            `
+      /*
+      |--------------------------------------------------------------------------
+      | Recommended images
+      |--------------------------------------------------------------------------
+      */
+
+      for (const recommendation of recommendedRows) {
+        recommendation.images = await query(
+          `
               SELECT *
+
               FROM product_images
 
               WHERE product_id = ?
 
               ORDER BY
                 is_primary DESC,
-                sort_order,
-                id
+                sort_order ASC,
+                id ASC
             `,
-            [
-              recommendation.id,
-            ]
-          );
+          [recommendation.id],
+        );
       }
 
-      recommended =
-        recommendedRows.map(
-          (recommendation) =>
-            product(
-              recommendation,
-              recommendation.images
-            )
-        );
+      recommended = recommendedRows.map((recommendation) =>
+        product(recommendation, recommendation.images),
+      );
     }
 
     /*
@@ -708,12 +722,9 @@ export async function show(req, res) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      recommended.length === 0
-    ) {
-      const fallbackRows =
-        await query(
-          `
+    if (recommended.length === 0) {
+      const fallbackRows = await query(
+        `
             SELECT
               p.*,
 
@@ -731,6 +742,7 @@ export async function show(req, res) {
               ON m.id = p.material_id
 
             WHERE p.status = 'active'
+
               AND p.id <> ?
 
             ORDER BY
@@ -741,53 +753,51 @@ export async function show(req, res) {
 
             LIMIT 4
           `,
-          [p.id]
-        );
+        [currentProduct.id],
+      );
 
-      for (
-        const recommendation
-        of fallbackRows
-      ) {
-        recommendation.images =
-          await query(
-            `
+      /*
+      |--------------------------------------------------------------------------
+      | Fallback product images
+      |--------------------------------------------------------------------------
+      */
+
+      for (const recommendation of fallbackRows) {
+        recommendation.images = await query(
+          `
               SELECT *
+
               FROM product_images
 
               WHERE product_id = ?
 
               ORDER BY
                 is_primary DESC,
-                sort_order,
-                id
+                sort_order ASC,
+                id ASC
             `,
-            [
-              recommendation.id,
-            ]
-          );
+          [recommendation.id],
+        );
       }
 
-      recommended =
-        fallbackRows.map(
-          (recommendation) =>
-            product(
-              recommendation,
-              recommendation.images
-            )
-        );
+      recommended = fallbackRows.map((recommendation) =>
+        product(recommendation, recommendation.images),
+      );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Final response
+    | Serialized Product
     |--------------------------------------------------------------------------
     */
 
-    const serializedProduct =
-      product(
-        p,
-        images
-      );
+    const serializedProduct = product(currentProduct, images);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Final Response
+    |--------------------------------------------------------------------------
+    */
 
     return ok(res, {
       success: true,
@@ -797,28 +807,21 @@ export async function show(req, res) {
 
         variants,
 
+        design_options: designOptions,
+
         reviews,
 
-        review_count:
-          reviewCount,
+        review_count: reviewCount,
 
-        review_average:
-          reviewAverage,
+        review_average: reviewAverage,
 
         recommended,
       },
     });
   } catch (error) {
-    console.error(
-      "Store product show error:",
-      error
-    );
+    console.error("Store product show error:", error);
 
-    return fail(
-      res,
-      "Unable to load product.",
-      500
-    );
+    return fail(res, "Unable to load product.", 500);
   }
 }
 
@@ -828,47 +831,56 @@ export async function show(req, res) {
 |--------------------------------------------------------------------------
 */
 
-export async function categories(
-  req,
-  res
-) {
+export async function categories(req, res) {
   try {
-    const roots =
-      await query(
-        `
+    /*
+    |--------------------------------------------------------------------------
+    | Root Categories
+    |--------------------------------------------------------------------------
+    */
+
+    const roots = await query(
+      `
           SELECT *
+
           FROM categories
 
           WHERE status = 'active'
+
             AND (
               parent_id IS NULL
               OR parent_id = 0
             )
 
           ORDER BY
-            sort_order,
-            name
-        `
-      );
+            sort_order ASC,
+            name ASC
+        `,
+    );
 
-    for (
-      const r of roots
-    ) {
-      r.children =
-        await query(
-          `
+    /*
+    |--------------------------------------------------------------------------
+    | Child Categories
+    |--------------------------------------------------------------------------
+    */
+
+    for (const root of roots) {
+      root.children = await query(
+        `
             SELECT *
+
             FROM categories
 
             WHERE parent_id = ?
+
               AND status = 'active'
 
             ORDER BY
-              sort_order,
-              name
+              sort_order ASC,
+              name ASC
           `,
-          [r.id]
-        );
+        [root.id],
+      );
     }
 
     return ok(res, {
@@ -876,15 +888,8 @@ export async function categories(
       data: roots,
     });
   } catch (error) {
-    console.error(
-      "Store categories error:",
-      error
-    );
+    console.error("Store categories error:", error);
 
-    return fail(
-      res,
-      "Unable to load categories.",
-      500
-    );
+    return fail(res, "Unable to load categories.", 500);
   }
 }

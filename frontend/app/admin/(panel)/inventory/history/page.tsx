@@ -22,7 +22,6 @@ import {
   apiFetch,
   BACKEND_URL,
 } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -861,7 +860,7 @@ export default function InventoryHistoryPage() {
                               {image ? (
 
                                 <img
-                                  src={getProductImageUrl(image) || "/logo.png"}
+                                  src={`${BACKEND_URL}/storage/${image}`}
                                   alt={
                                     productName
                                   }

@@ -1,25 +1,13 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
-import {
-  useRouter,
-} from "next/navigation";
+import { useRouter } from "next/navigation";
 
-import {
-  SlidersHorizontal,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { SlidersHorizontal, Sparkles, X } from "lucide-react";
 
-import {
-  storeApiFetch,
-} from "@/lib/storeApi";
+import { storeApiFetch } from "@/lib/storeApi";
 
 import CategoryFilters, {
   type FilterCategory,
@@ -109,78 +97,35 @@ export default function CategoryPageClient({
   child,
   initialFilters,
 }: CategoryPageClientProps) {
-  const router =
-    useRouter();
+  const router = useRouter();
 
   /* =======================================================
      FILTER STATE
   ======================================================= */
 
-  const [search, setSearch] =
-    useState(
-      initialFilters.search
-    );
+  const [search, setSearch] = useState(initialFilters.search);
 
-  const [minPrice, setMinPrice] =
-    useState(
-      initialFilters.minPrice
-    );
+  const [minPrice, setMinPrice] = useState(initialFilters.minPrice);
 
-  const [maxPrice, setMaxPrice] =
-    useState(
-      initialFilters.maxPrice
-    );
+  const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice);
 
-  const [sort, setSort] =
-    useState(
-      initialFilters.sort
-    );
+  const [sort, setSort] = useState(initialFilters.sort);
 
-  const [
-    newArrival,
-    setNewArrival,
-  ] = useState(
-    initialFilters.newArrival
-  );
+  const [newArrival, setNewArrival] = useState(initialFilters.newArrival);
 
-  const [
-    bestSeller,
-    setBestSeller,
-  ] = useState(
-    initialFilters.bestSeller
-  );
+  const [bestSeller, setBestSeller] = useState(initialFilters.bestSeller);
 
-  const [
-    featured,
-    setFeatured,
-  ] = useState(
-    initialFilters.featured
-  );
+  const [featured, setFeatured] = useState(initialFilters.featured);
 
-  const [page, setPage] =
-    useState(
-      initialFilters.page
-    );
+  const [page, setPage] = useState(initialFilters.page);
 
-  const [
-    products,
-    setProducts,
-  ] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [
-    mobileFilters,
-    setMobileFilters,
-  ] = useState(false);
+  const [mobileFilters, setMobileFilters] = useState(false);
 
-  const [
-    pagination,
-    setPagination,
-  ] = useState<PaginationData>({
+  const [pagination, setPagination] = useState<PaginationData>({
     current_page: 1,
     last_page: 1,
     total: 0,
@@ -191,8 +136,7 @@ export default function CategoryPageClient({
      CURRENT CATEGORY
   ======================================================= */
 
-  const currentCategory =
-    selectedCategory.slug;
+  const currentCategory = selectedCategory.slug;
 
   /* =======================================================
      LOAD PRODUCTS
@@ -205,93 +149,55 @@ export default function CategoryPageClient({
       try {
         setLoading(true);
 
-        const params =
-          new URLSearchParams();
+        const params = new URLSearchParams();
 
-        params.set(
-          "category",
-          currentCategory
-        );
+        params.set("category", currentCategory);
 
-        params.set(
-          "per_page",
-          "24"
-        );
+        params.set("per_page", "24");
 
-        params.set(
-          "page",
-          String(page)
-        );
+        params.set("page", String(page));
 
         if (search.trim()) {
-          params.set(
-            "search",
-            search.trim()
-          );
+          params.set("search", search.trim());
         }
 
         if (minPrice) {
-          params.set(
-            "min_price",
-            minPrice
-          );
+          params.set("min_price", minPrice);
         }
 
         if (maxPrice) {
-          params.set(
-            "max_price",
-            maxPrice
-          );
+          params.set("max_price", maxPrice);
         }
 
         if (sort) {
-          params.set(
-            "sort",
-            sort
-          );
+          params.set("sort", sort);
         }
 
         if (newArrival) {
-          params.set(
-            "new_arrival",
-            "1"
-          );
+          params.set("new_arrival", "1");
         }
 
         if (bestSeller) {
-          params.set(
-            "best_seller",
-            "1"
-          );
+          params.set("best_seller", "1");
         }
 
         if (featured) {
-          params.set(
-            "featured",
-            "1"
-          );
+          params.set("featured", "1");
         }
 
-        const response =
-          await storeApiFetch(
-            `/store/products?${params.toString()}`
-          );
+        const response = await storeApiFetch(
+          `/store/products?${params.toString()}`,
+        );
 
-        const json =
-          await response.json();
+        const json = await response.json();
 
         if (cancelled) {
           return;
         }
 
-        const list =
-          Array.isArray(
-            json?.data?.data
-          )
-            ? json.data.data
-            : Array.isArray(
-                json?.data
-              )
+        const list = Array.isArray(json?.data?.data)
+          ? json.data.data
+          : Array.isArray(json?.data)
             ? json.data
             : [];
 
@@ -299,44 +205,24 @@ export default function CategoryPageClient({
 
         if (json?.data?.current_page) {
           setPagination({
-            current_page:
-              Number(
-                json.data
-                  .current_page
-              ) || 1,
+            current_page: Number(json.data.current_page) || 1,
 
-            last_page:
-              Number(
-                json.data
-                  .last_page
-              ) || 1,
+            last_page: Number(json.data.last_page) || 1,
 
-            total:
-              Number(
-                json.data
-                  .total
-              ) || list.length,
+            total: Number(json.data.total) || list.length,
 
-            per_page:
-              Number(
-                json.data
-                  .per_page
-              ) || 24,
+            per_page: Number(json.data.per_page) || 24,
           });
         } else {
           setPagination({
             current_page: 1,
             last_page: 1,
-            total:
-              list.length,
+            total: list.length,
             per_page: 24,
           });
         }
       } catch (error) {
-        console.error(
-          "Category products error:",
-          error
-        );
+        console.error("Category products error:", error);
 
         if (!cancelled) {
           setProducts([]);
@@ -377,85 +263,52 @@ export default function CategoryPageClient({
   ======================================================= */
 
   useEffect(() => {
-    const timeout =
-      setTimeout(() => {
-        const params =
-          new URLSearchParams();
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams();
 
-        if (search.trim()) {
-          params.set(
-            "search",
-            search.trim()
-          );
-        }
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
 
-        if (minPrice) {
-          params.set(
-            "min_price",
-            minPrice
-          );
-        }
+      if (minPrice) {
+        params.set("min_price", minPrice);
+      }
 
-        if (maxPrice) {
-          params.set(
-            "max_price",
-            maxPrice
-          );
-        }
+      if (maxPrice) {
+        params.set("max_price", maxPrice);
+      }
 
-        if (sort) {
-          params.set(
-            "sort",
-            sort
-          );
-        }
+      if (sort) {
+        params.set("sort", sort);
+      }
 
-        if (newArrival) {
-          params.set(
-            "new_arrival",
-            "1"
-          );
-        }
+      if (newArrival) {
+        params.set("new_arrival", "1");
+      }
 
-        if (bestSeller) {
-          params.set(
-            "best_seller",
-            "1"
-          );
-        }
+      if (bestSeller) {
+        params.set("best_seller", "1");
+      }
 
-        if (featured) {
-          params.set(
-            "featured",
-            "1"
-          );
-        }
+      if (featured) {
+        params.set("featured", "1");
+      }
 
-        if (page > 1) {
-          params.set(
-            "page",
-            String(page)
-          );
-        }
+      if (page > 1) {
+        params.set("page", String(page));
+      }
 
-        const query =
-          params.toString();
+      const query = params.toString();
 
-        router.replace(
-          `/shop/${parent.slug}${
-            child
-              ? `/${child.slug}`
-              : ""
-          }${
-            query
-              ? `?${query}`
-              : ""
-          }`,
-          {
-            scroll: false,
-          }
-        );
-      }, 400);
+      router.replace(
+        `/shop/${parent.slug}${child ? `/${child.slug}` : ""}${
+          query ? `?${query}` : ""
+        }`,
+        {
+          scroll: false,
+        },
+      );
+    }, 400);
 
     return () => {
       clearTimeout(timeout);
@@ -480,50 +333,28 @@ export default function CategoryPageClient({
 
   useEffect(() => {
     setPage(1);
-  }, [
-    search,
-    minPrice,
-    maxPrice,
-    sort,
-    newArrival,
-    bestSeller,
-    featured,
-  ]);
+  }, [search, minPrice, maxPrice, sort, newArrival, bestSeller, featured]);
 
   /* =======================================================
      CATEGORY NAVIGATION
   ======================================================= */
 
-  function handleCategoryChange(
-    slug: string
-  ) {
-    const selectedParent =
-      categories.find(
-        (item) =>
-          item.slug === slug
-      );
+  function handleCategoryChange(slug: string) {
+    const selectedParent = categories.find((item) => item.slug === slug);
 
     if (selectedParent) {
-      router.push(
-        `/shop/${selectedParent.slug}`
-      );
+      router.push(`/shop/${selectedParent.slug}`);
 
       return;
     }
 
-    for (
-      const category of categories
-    ) {
-      const selectedChild =
-        category.children?.find(
-          (item) =>
-            item.slug === slug
-        );
+    for (const category of categories) {
+      const selectedChild = category.children?.find(
+        (item) => item.slug === slug,
+      );
 
       if (selectedChild) {
-        router.push(
-          `/shop/${category.slug}/${selectedChild.slug}`
-        );
+        router.push(`/shop/${category.slug}/${selectedChild.slug}`);
 
         return;
       }
@@ -556,11 +387,21 @@ export default function CategoryPageClient({
      PRODUCT COUNT
   ======================================================= */
 
-  const productCount =
-    useMemo(
-      () => pagination.total,
-      [pagination.total]
-    );
+  const productCount = useMemo(() => pagination.total, [pagination.total]);
+
+  /* =======================================================
+     ACTIVE FILTER COUNT
+  ======================================================= */
+
+  const filterCount = useMemo(() => {
+    return [
+      sort,
+      minPrice || maxPrice ? "price" : "",
+      newArrival ? "new_arrival" : "",
+      bestSeller ? "best_seller" : "",
+      featured ? "featured" : "",
+    ].filter(Boolean).length;
+  }, [sort, minPrice, maxPrice, newArrival, bestSeller, featured]);
 
   /* =======================================================
      RENDER
@@ -568,15 +409,12 @@ export default function CategoryPageClient({
 
   return (
     <main className="min-h-screen bg-white">
-
       {/* ===================================================
           HERO
       =================================================== */}
 
       <section className="border-b border-[#e9e1d7] bg-[#f7f1e8]">
-
         <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
-
           <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#c9a227]">
             BanglesMart / Collection
           </p>
@@ -589,9 +427,7 @@ export default function CategoryPageClient({
             {selectedCategory.description ||
               `Explore our beautiful collection of ${selectedCategory.name.toLowerCase()}.`}
           </p>
-
         </div>
-
       </section>
 
       {/* ===================================================
@@ -599,9 +435,7 @@ export default function CategoryPageClient({
       =================================================== */}
 
       <section className="mx-auto max-w-7xl px-5 pt-6 sm:px-6 lg:px-8 lg:pt-8">
-
         <div className="flex flex-wrap items-center gap-2 text-sm">
-
           <Link
             href="/shop"
             className="text-[#777] transition hover:text-[#8f0828]"
@@ -609,9 +443,7 @@ export default function CategoryPageClient({
             Shop
           </Link>
 
-          <span className="text-[#aaa]">
-            ›
-          </span>
+          <span className="text-[#aaa]">›</span>
 
           <Link
             href={`/shop/${parent.slug}`}
@@ -626,18 +458,12 @@ export default function CategoryPageClient({
 
           {child && (
             <>
-              <span className="text-[#aaa]">
-                ›
-              </span>
+              <span className="text-[#aaa]">›</span>
 
-              <span className="font-medium text-[#111]">
-                {child.name}
-              </span>
+              <span className="font-medium text-[#111]">{child.name}</span>
             </>
           )}
-
         </div>
-
       </section>
 
       {/* ===================================================
@@ -645,22 +471,19 @@ export default function CategoryPageClient({
       =================================================== */}
 
       <div className="mx-auto flex max-w-7xl px-5 pt-6 sm:px-6 lg:hidden">
-
         <button
           type="button"
-          onClick={() =>
-            setMobileFilters(true)
-          }
+          onClick={() => setMobileFilters(true)}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#ded5c9] bg-white py-3 text-sm font-semibold text-[#333] shadow-sm"
         >
-          <SlidersHorizontal
-            size={17}
-          />
-
+          <SlidersHorizontal size={17} />
           Filter Products
-
+          {filterCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#8f0828] px-1.5 text-[9px] text-white">
+              {filterCount}
+            </span>
+          )}
         </button>
-
       </div>
 
       {/* ===================================================
@@ -668,75 +491,69 @@ export default function CategoryPageClient({
       =================================================== */}
 
       <section className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8 lg:py-10">
-
-        <div className="grid gap-10 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
-
+        <div className="grid items-start gap-8 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[255px_minmax(0,1fr)]">
           {/* ===============================================
               DESKTOP FILTER
           =============================================== */}
 
           <aside className="hidden lg:block">
+            <div className="sticky top-24 flex max-h-[calc(100vh-7rem)] flex-col">
+              {/* =============================================
+                  FILTER HEADER
+              ============================================= */}
 
-            <div className="sticky top-28 rounded-2xl border border-[#e7dfd4] bg-white p-5 shadow-[0_8px_30px_rgba(50,35,20,.035)]">
+              <div className="shrink-0 border-b border-[#e9e2d8] bg-white pb-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#191919]">
+                      Filters
+                    </h3>
 
-              <div className="mb-5">
+                    <p className="mt-1 text-[11px] text-[#8b847a]">
+                      Refine your selection
+                    </p>
+                  </div>
 
-                <h3 className="text-sm font-semibold text-[#191919]">
-                  Refine
-                </h3>
-
-                <p className="mt-1 text-[10px] text-[#999]">
-                  Find your perfect bangles
-                </p>
-
+                  {filterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8f0828] transition hover:opacity-70"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <CategoryFilters
-                categories={categories}
-                category={currentCategory}
-                setCategory={
-                  handleCategoryChange
-                }
-                productCount={
-                  productCount
-                }
-                search={search}
-                setSearch={
-                  setSearch
-                }
-                minPrice={minPrice}
-                maxPrice={maxPrice}
-                setMinPrice={
-                  setMinPrice
-                }
-                setMaxPrice={
-                  setMaxPrice
-                }
-                sort={sort}
-                setSort={setSort}
-                newArrival={
-                  newArrival
-                }
-                bestSeller={
-                  bestSeller
-                }
-                featured={featured}
-                setNewArrival={
-                  setNewArrival
-                }
-                setBestSeller={
-                  setBestSeller
-                }
-                setFeatured={
-                  setFeatured
-                }
-                clearFilters={
-                  clearFilters
-                }
-              />
+              {/* =============================================
+                  SCROLLABLE FILTER CONTENT
+              ============================================= */}
 
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-5 pr-3 [scrollbar-width:thin] [scrollbar-color:#d5cec4_transparent] [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d5cec4] [&::-webkit-scrollbar-track]:bg-transparent">
+                <CategoryFilters
+                  categories={categories}
+                  category={currentCategory}
+                  setCategory={handleCategoryChange}
+                  productCount={productCount}
+                  search={search}
+                  setSearch={setSearch}
+                  minPrice={minPrice}
+                  maxPrice={maxPrice}
+                  setMinPrice={setMinPrice}
+                  setMaxPrice={setMaxPrice}
+                  sort={sort}
+                  setSort={setSort}
+                  newArrival={newArrival}
+                  bestSeller={bestSeller}
+                  featured={featured}
+                  setNewArrival={setNewArrival}
+                  setBestSeller={setBestSeller}
+                  setFeatured={setFeatured}
+                  clearFilters={clearFilters}
+                />
+              </div>
             </div>
-
           </aside>
 
           {/* ===============================================
@@ -744,11 +561,8 @@ export default function CategoryPageClient({
           =============================================== */}
 
           <div className="min-w-0">
-
             <div className="mb-6 flex flex-col gap-3 border-b border-[#e9e1d7] pb-5 sm:flex-row sm:items-end sm:justify-between">
-
               <div>
-
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[#999]">
                   Curated for you
                 </p>
@@ -758,15 +572,9 @@ export default function CategoryPageClient({
                 </h2>
 
                 <p className="mt-1 text-sm text-[#777]">
-                  {productCount}{" "}
-
-                  {productCount === 1
-                    ? "product"
-                    : "products"}
+                  {productCount} {productCount === 1 ? "product" : "products"}
                 </p>
-
               </div>
-
             </div>
 
             {/* =============================================
@@ -774,152 +582,88 @@ export default function CategoryPageClient({
             ============================================= */}
 
             {loading && (
-
               <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
-
                 {Array.from({
                   length: 9,
-                }).map(
-                  (_, index) => (
-                    <ProductSkeleton
-                      key={index}
-                    />
-                  )
-                )}
-
+                }).map((_, index) => (
+                  <ProductSkeleton key={index} />
+                ))}
               </div>
-
             )}
 
             {/* =============================================
                 PRODUCTS
             ============================================= */}
 
-            {!loading &&
-              products.length > 0 && (
-
-                <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
-
-                  {products.map(
-                    (product) => (
-
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                      />
-
-                    )
-                  )}
-
-                </div>
-
-              )}
+            {!loading && products.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            )}
 
             {/* =============================================
                 EMPTY
             ============================================= */}
 
-            {!loading &&
-              products.length === 0 && (
+            {!loading && products.length === 0 && (
+              <div className="py-20 text-center">
+                <Sparkles size={30} className="mx-auto text-[#c9a227]" />
 
-                <div className="py-20 text-center">
+                <h3 className="mt-4 font-[family-name:var(--font-playfair)] text-2xl text-[#222]">
+                  No products found
+                </h3>
 
-                  <Sparkles
-                    size={30}
-                    className="mx-auto text-[#c9a227]"
-                  />
+                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#999]">
+                  Try changing your filters or browse another collection.
+                </p>
 
-                  <h3 className="mt-4 font-[family-name:var(--font-playfair)] text-2xl text-[#222]">
-                    No products found
-                  </h3>
-
-                  <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#999]">
-                    Try changing your filters
-                    or browse another
-                    collection.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={
-                      clearFilters
-                    }
-                    className="mt-6 rounded-full bg-[#8f0828] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#6f061f]"
-                  >
-                    Clear Filters
-                  </button>
-
-                </div>
-
-              )}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-6 rounded-full bg-[#8f0828] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#6f061f]"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
 
             {/* =============================================
                 PAGINATION
             ============================================= */}
 
-            {!loading &&
-              pagination.last_page > 1 && (
+            {!loading && pagination.last_page > 1 && (
+              <div className="mt-12 flex flex-wrap items-center justify-center gap-4 border-t border-[#e9e2d8] pt-7">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="rounded-full border border-[#ddd4c7] bg-white px-5 py-2.5 text-xs font-semibold transition hover:border-[#c9a227] disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  Previous
+                </button>
 
-                <div className="mt-12 flex flex-wrap items-center justify-center gap-4 border-t border-[#e9e2d8] pt-7">
+                <span className="text-xs text-[#777]">
+                  Page {pagination.current_page} of {pagination.last_page}
+                </span>
 
-                  <button
-                    type="button"
-                    disabled={
-                      page <= 1
-                    }
-                    onClick={() =>
-                      setPage(
-                        (current) =>
-                          Math.max(
-                            1,
-                            current - 1
-                          )
-                      )
-                    }
-                    className="rounded-full border border-[#ddd4c7] bg-white px-5 py-2.5 text-xs font-semibold transition hover:border-[#c9a227] disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    Previous
-                  </button>
-
-                  <span className="text-xs text-[#777]">
-                    Page{" "}
-                    {
-                      pagination.current_page
-                    }{" "}
-                    of{" "}
-                    {
-                      pagination.last_page
-                    }
-                  </span>
-
-                  <button
-                    type="button"
-                    disabled={
-                      page >=
-                      pagination.last_page
-                    }
-                    onClick={() =>
-                      setPage(
-                        (current) =>
-                          Math.min(
-                            pagination.last_page,
-                            current + 1
-                          )
-                      )
-                    }
-                    className="rounded-full border border-[#ddd4c7] bg-white px-5 py-2.5 text-xs font-semibold transition hover:border-[#c9a227] disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    Next
-                  </button>
-
-                </div>
-
-              )}
-
+                <button
+                  type="button"
+                  disabled={page >= pagination.last_page}
+                  onClick={() =>
+                    setPage((current) =>
+                      Math.min(pagination.last_page, current + 1),
+                    )
+                  }
+                  className="rounded-full border border-[#ddd4c7] bg-white px-5 py-2.5 text-xs font-semibold transition hover:border-[#c9a227] disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
-
         </div>
-
       </section>
 
       {/* ===================================================
@@ -927,24 +671,17 @@ export default function CategoryPageClient({
       =================================================== */}
 
       {mobileFilters && (
-
         <div className="fixed inset-0 z-[100] lg:hidden">
-
           <button
             type="button"
             aria-label="Close filters"
-            onClick={() =>
-              setMobileFilters(false)
-            }
+            onClick={() => setMobileFilters(false)}
             className="absolute inset-0 bg-black/45"
           />
 
           <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-[30px] bg-white p-5 shadow-2xl">
-
             <div className="mb-6 flex items-center justify-between border-b border-[#eee8de] pb-4">
-
               <div>
-
                 <h3 className="font-[family-name:var(--font-playfair)] text-2xl text-[#191919]">
                   Filters
                 </h3>
@@ -952,72 +689,42 @@ export default function CategoryPageClient({
                 <p className="mt-1 text-xs text-[#888]">
                   Refine your collection
                 </p>
-
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setMobileFilters(false)
-                }
+                onClick={() => setMobileFilters(false)}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f3ed]"
               >
                 <X size={18} />
               </button>
-
             </div>
 
             <CategoryFilters
               categories={categories}
               category={currentCategory}
-              setCategory={
-                handleCategoryChange
-              }
-              productCount={
-                productCount
-              }
+              setCategory={handleCategoryChange}
+              productCount={productCount}
               search={search}
-              setSearch={
-                setSearch
-              }
+              setSearch={setSearch}
               minPrice={minPrice}
               maxPrice={maxPrice}
-              setMinPrice={
-                setMinPrice
-              }
-              setMaxPrice={
-                setMaxPrice
-              }
+              setMinPrice={setMinPrice}
+              setMaxPrice={setMaxPrice}
               sort={sort}
               setSort={setSort}
-              newArrival={
-                newArrival
-              }
-              bestSeller={
-                bestSeller
-              }
+              newArrival={newArrival}
+              bestSeller={bestSeller}
               featured={featured}
-              setNewArrival={
-                setNewArrival
-              }
-              setBestSeller={
-                setBestSeller
-              }
-              setFeatured={
-                setFeatured
-              }
-              clearFilters={
-                clearFilters
-              }
+              setNewArrival={setNewArrival}
+              setBestSeller={setBestSeller}
+              setFeatured={setFeatured}
+              clearFilters={clearFilters}
               mobile
             />
-
           </div>
-
         </div>
-
       )}
-
     </main>
   );
 }
