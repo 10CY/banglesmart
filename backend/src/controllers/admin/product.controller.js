@@ -2,7 +2,20 @@ import { query } from "../../db.js";
 import { ok, fail } from "../../utils/http.js";
 import { uniqueSlug } from "../../utils/slug.js";
 import { imageUrl } from "../../utils/serialize.js";
-import { getUploadedFilePath } from "../../middleware/upload.js";
+
+import {
+  PRODUCT_FIELDS,
+  nullableString,
+  toBool,
+  toNumber,
+} from "../../modules/products/product.definition.js";
+
+import {
+  createProductWithRelations,
+  getProductDesignOptions,
+} from "../../services/product.service.js";
+
+import { uploadedImageValue } from "../../utils/uploadPath.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -10,59 +23,7 @@ import { getUploadedFilePath } from "../../middleware/upload.js";
 |--------------------------------------------------------------------------
 */
 
-const productFields = [
-  "category_id",
-  "material_id",
-  "name",
-  "sku",
-  "short_description",
-  "description",
-  "mrp",
-  "selling_price",
-  "set_quantity",
-  "featured",
-  "best_seller",
-  "new_arrival",
-  "status",
-  "seo_title",
-  "seo_description",
-];
-
-/*
-|--------------------------------------------------------------------------
-| Helpers
-|--------------------------------------------------------------------------
-*/
-
-function toNumber(value, fallback = 0) {
-  if (value === null || value === undefined || value === "") {
-    return fallback;
-  }
-
-  const n = Number(value);
-
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function toBool(value) {
-  return value === true || value === 1 || value === "1" || value === "true";
-}
-
-/*
-|--------------------------------------------------------------------------
-| Prevent undefined values from ever reaching MySQL
-|--------------------------------------------------------------------------
-*/
-
-function nullableString(value) {
-  if (value === undefined || value === null) {
-    return null;
-  }
-
-  const text = String(value).trim();
-
-  return text === "" ? null : text;
-}
+const productFields = PRODUCT_FIELDS;
 
 /*
 |--------------------------------------------------------------------------
@@ -70,7 +31,7 @@ function nullableString(value) {
 |--------------------------------------------------------------------------
 */
 
-function shapeProduct(product, images = [], variants = []) {
+function shapeProduct(product, images = [], variants = [], designOptions = []) {
   if (!product) {
     return null;
   }
@@ -79,14 +40,12 @@ function shapeProduct(product, images = [], variants = []) {
     ...product,
 
     category_id:
-      product.category_id !== null &&
-      product.category_id !== undefined
+      product.category_id !== null && product.category_id !== undefined
         ? Number(product.category_id)
         : null,
 
     material_id:
-      product.material_id !== null &&
-      product.material_id !== undefined
+      product.material_id !== null && product.material_id !== undefined
         ? Number(product.material_id)
         : null,
 
@@ -102,15 +61,99 @@ function shapeProduct(product, images = [], variants = []) {
 
     new_arrival: toBool(product.new_arrival),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Product Images
+    |--------------------------------------------------------------------------
+    */
+
     images: Array.isArray(images)
       ? images.map((image) => ({
           ...image,
+
+          id:
+            image.id !== null && image.id !== undefined
+              ? Number(image.id)
+              : null,
+
+          product_id:
+            image.product_id !== null && image.product_id !== undefined
+              ? Number(image.product_id)
+              : null,
+
+          /*
+              |--------------------------------------------------------------------------
+              | COLOR-SPECIFIC IMAGE
+              |--------------------------------------------------------------------------
+              |
+              | NULL = General image
+              |
+              */
+
+          color_id:
+            image.color_id !== null && image.color_id !== undefined
+              ? Number(image.color_id)
+              : null,
+
+          sort_order: Number(image.sort_order || 0),
+
+          is_primary: toBool(image.is_primary),
 
           url: image.image ? imageUrl(image.image) : null,
         }))
       : [],
 
-    variants: Array.isArray(variants) ? variants : [],
+    /*
+    |--------------------------------------------------------------------------
+    | Variants
+    |--------------------------------------------------------------------------
+    */
+
+    variants: Array.isArray(variants)
+      ? variants.map((variant) => ({
+          ...variant,
+
+          id:
+            variant.id !== null && variant.id !== undefined
+              ? Number(variant.id)
+              : null,
+
+          product_id:
+            variant.product_id !== null && variant.product_id !== undefined
+              ? Number(variant.product_id)
+              : null,
+
+          size_id:
+            variant.size_id !== null && variant.size_id !== undefined
+              ? Number(variant.size_id)
+              : null,
+
+          color_id:
+            variant.color_id !== null && variant.color_id !== undefined
+              ? Number(variant.color_id)
+              : null,
+
+          mrp: toNumber(variant.mrp),
+
+          selling_price: toNumber(variant.selling_price),
+
+          quantity: toNumber(variant.quantity),
+
+          reserved_quantity: toNumber(variant.reserved_quantity),
+
+          low_stock_limit: toNumber(variant.low_stock_limit, 5),
+
+          available_quantity: toNumber(variant.available_quantity),
+        }))
+      : [],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Design Options
+    |--------------------------------------------------------------------------
+    */
+
+    design_options: Array.isArray(designOptions) ? designOptions : [],
   };
 }
 
@@ -127,11 +170,15 @@ export async function index(req, res) {
         p.*,
         c.name AS category_name,
         m.name AS material_name
+
       FROM products p
+
       LEFT JOIN categories c
         ON c.id = p.category_id
+
       LEFT JOIN materials m
         ON m.id = p.material_id
+
       WHERE 1=1
     `;
 
@@ -226,189 +273,42 @@ export async function index(req, res) {
 
 export async function store(req, res) {
   try {
-    const x = req.body || {};
-
     /*
     |--------------------------------------------------------------------------
-    | Validate product name
+    | Centralized Product Creation
+    |--------------------------------------------------------------------------
+    |
+    | Creates:
+    |
+    | Product
+    | Product Variants
+    | Inventory
+    | Optional Design Options
+    |
     |--------------------------------------------------------------------------
     */
 
-    const name = typeof x.name === "string" ? x.name.trim() : "";
-
-    if (!name) {
-      return fail(res, "Product name is required.", 422);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Generate unique slug
-    |--------------------------------------------------------------------------
-    */
-
-    const slug = await uniqueSlug(name, "products");
-
-    /*
-    |--------------------------------------------------------------------------
-    | Build safe values
-    |--------------------------------------------------------------------------
-    */
-
-    const values = productFields.map((field) => {
-      /*
-      |--------------------------------------------------------------------------
-      | Boolean fields
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        field === "featured" ||
-        field === "best_seller" ||
-        field === "new_arrival"
-      ) {
-        return toBool(x[field]) ? 1 : 0;
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Numeric fields
-      |--------------------------------------------------------------------------
-      */
-
-      if (field === "mrp" || field === "selling_price") {
-        return toNumber(x[field], 0);
-      }
-
-      if (field === "set_quantity") {
-        return toNumber(x[field], 1);
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Status
-      |--------------------------------------------------------------------------
-      */
-
-      if (field === "status") {
-        const status = nullableString(x[field]);
-
-        return status || "active";
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Category
-      |--------------------------------------------------------------------------
-      */
-
-      if (field === "category_id") {
-        if (
-          x[field] === undefined ||
-          x[field] === null ||
-          x[field] === ""
-        ) {
-          return null;
-        }
-
-        const categoryId = Number(x[field]);
-
-        return Number.isFinite(categoryId) ? categoryId : null;
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Material
-      |--------------------------------------------------------------------------
-      */
-
-      if (field === "material_id") {
-        if (
-          x[field] === undefined ||
-          x[field] === null ||
-          x[field] === ""
-        ) {
-          return null;
-        }
-
-        const materialId = Number(x[field]);
-
-        return Number.isFinite(materialId) ? materialId : null;
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Everything else
-      |--------------------------------------------------------------------------
-      */
-
-      return nullableString(x[field]);
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | INSERT
-    |--------------------------------------------------------------------------
-    */
-
-    const sql = `
-      INSERT INTO products
-      (
-        ${productFields.join(",")},
-        slug,
-        created_at,
-        updated_at
-      )
-      VALUES
-      (
-        ${productFields.map(() => "?").join(",")},
-        ?,
-        NOW(),
-        NOW()
-      )
-    `;
-
-    const result = await query(sql, [...values, slug]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Get created product
-    |--------------------------------------------------------------------------
-    */
-
-    const productRows = await query(
-      `
-        SELECT
-          p.*,
-          c.name AS category_name,
-          m.name AS material_name
-        FROM products p
-        LEFT JOIN categories c
-          ON c.id = p.category_id
-        LEFT JOIN materials m
-          ON m.id = p.material_id
-        WHERE p.id = ?
-        LIMIT 1
-      `,
-      [result.insertId],
-    );
-
-    const product = productRows[0];
+    const created = await createProductWithRelations(req.body || {});
 
     return ok(
       res,
       {
         success: true,
 
-        message: "Product created successfully.",
+        message: "Product, variants and inventory created successfully.",
 
-        data: shapeProduct(product),
+        data: created,
       },
       201,
     );
   } catch (error) {
     console.error("CREATE PRODUCT ERROR:", error);
 
-    return fail(res, error.message || "Unable to create product.", 500);
+    return fail(
+      res,
+      error?.message || "Unable to create product.",
+      error?.status || 500,
+    );
   }
 }
 
@@ -417,23 +317,16 @@ export async function store(req, res) {
 | GET SINGLE PRODUCT
 |--------------------------------------------------------------------------
 |
-| IMPORTANT:
+| Frontend:
 |
-| Frontend calls:
-| /admin/products/9
+| /admin/products/:id
 |
-| Therefore we MUST use:
-| req.params.id
-|
-| Never req.params.slug here.
 |--------------------------------------------------------------------------
 */
 
 export async function show(req, res) {
   try {
-    const rawId = req.params.id;
-
-    const id = Number(rawId);
+    const id = Number(req.params.id);
 
     /*
     |--------------------------------------------------------------------------
@@ -447,24 +340,33 @@ export async function show(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | PRODUCT
+    | Product
     |--------------------------------------------------------------------------
     */
 
     const productRows = await query(
       `
-        SELECT
-          p.*,
-          c.name AS category_name,
-          m.name AS material_name
-        FROM products p
-        LEFT JOIN categories c
-          ON c.id = p.category_id
-        LEFT JOIN materials m
-          ON m.id = p.material_id
-        WHERE p.id = ?
-        LIMIT 1
-      `,
+          SELECT
+            p.*,
+
+            c.name AS category_name,
+
+            m.name AS material_name
+
+          FROM products p
+
+          LEFT JOIN categories c
+            ON c.id =
+               p.category_id
+
+          LEFT JOIN materials m
+            ON m.id =
+               p.material_id
+
+          WHERE p.id = ?
+
+          LIMIT 1
+        `,
       [id],
     );
 
@@ -476,79 +378,125 @@ export async function show(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | PRODUCT IMAGES
+    | Product Images
+    |--------------------------------------------------------------------------
+    |
+    | Includes color_id.
+    |
     |--------------------------------------------------------------------------
     */
 
     const images = await query(
       `
-        SELECT *
-        FROM product_images
-        WHERE product_id = ?
-        ORDER BY
-          is_primary DESC,
-          sort_order ASC,
-          id ASC
-      `,
+          SELECT *
+
+          FROM product_images
+
+          WHERE product_id = ?
+
+          ORDER BY
+            is_primary DESC,
+            sort_order ASC,
+            id ASC
+        `,
       [id],
     );
 
     /*
     |--------------------------------------------------------------------------
-    | PRODUCT VARIANTS
+    | Product Variants
     |--------------------------------------------------------------------------
     */
 
     const variants = await query(
       `
-        SELECT
-          pv.*,
+          SELECT
+            pv.*,
 
-          s.name AS size_name,
-          s.display_name AS size_display_name,
+            s.name
+              AS size_name,
 
-          c.name AS color_name,
-          c.display_name AS color_display_name,
-          c.hex_code,
+            s.display_name
+              AS size_display_name,
 
-          i.id AS inventory_id,
-          COALESCE(i.quantity, 0) AS quantity,
-          COALESCE(i.reserved_quantity, 0) AS reserved_quantity,
-          COALESCE(i.low_stock_limit, 5) AS low_stock_limit,
+            c.name
+              AS color_name,
 
-          (
-            COALESCE(i.quantity, 0) -
-            COALESCE(i.reserved_quantity, 0)
-          ) AS available_quantity
+            c.display_name
+              AS color_display_name,
 
-        FROM product_variants pv
+            c.hex_code,
 
-        LEFT JOIN sizes s
-          ON s.id = pv.size_id
+            i.id
+              AS inventory_id,
 
-        LEFT JOIN colors c
-          ON c.id = pv.color_id
+            COALESCE(
+              i.quantity,
+              0
+            ) AS quantity,
 
-        LEFT JOIN inventories i
-          ON i.product_variant_id = pv.id
+            COALESCE(
+              i.reserved_quantity,
+              0
+            ) AS reserved_quantity,
 
-        WHERE pv.product_id = ?
+            COALESCE(
+              i.low_stock_limit,
+              5
+            ) AS low_stock_limit,
 
-        ORDER BY pv.id ASC
-      `,
+            (
+              COALESCE(
+                i.quantity,
+                0
+              )
+              -
+              COALESCE(
+                i.reserved_quantity,
+                0
+              )
+            ) AS available_quantity
+
+          FROM product_variants pv
+
+          LEFT JOIN sizes s
+            ON s.id =
+               pv.size_id
+
+          LEFT JOIN colors c
+            ON c.id =
+               pv.color_id
+
+          LEFT JOIN inventories i
+            ON i.product_variant_id =
+               pv.id
+
+          WHERE pv.product_id = ?
+
+          ORDER BY
+            pv.id ASC
+        `,
       [id],
     );
 
     /*
     |--------------------------------------------------------------------------
-    | RESPONSE
+    | Design Options
+    |--------------------------------------------------------------------------
+    */
+
+    const designOptions = await getProductDesignOptions(id);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Response
     |--------------------------------------------------------------------------
     */
 
     return ok(res, {
       success: true,
 
-      data: shapeProduct(product, images, variants),
+      data: shapeProduct(product, images, variants, designOptions),
     });
   } catch (error) {
     console.error("GET SINGLE PRODUCT ERROR:", error);
@@ -579,17 +527,20 @@ export async function update(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Get old product
+    | Existing Product
     |--------------------------------------------------------------------------
     */
 
     const oldRows = await query(
       `
-        SELECT *
-        FROM products
-        WHERE id = ?
-        LIMIT 1
-      `,
+          SELECT *
+
+          FROM products
+
+          WHERE id = ?
+
+          LIMIT 1
+        `,
       [id],
     );
 
@@ -603,7 +554,7 @@ export async function update(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Product name
+    | Product Name
     |--------------------------------------------------------------------------
     */
 
@@ -627,26 +578,26 @@ export async function update(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Build update values
+    | Build Update Values
     |--------------------------------------------------------------------------
     */
 
     const values = productFields.map((field) => {
       /*
-      |--------------------------------------------------------------------------
-      | Name
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | Name
+          |--------------------------------------------------------------------------
+          */
 
       if (field === "name") {
         return name;
       }
 
       /*
-      |--------------------------------------------------------------------------
-      | Boolean
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | Boolean fields
+          |--------------------------------------------------------------------------
+          */
 
       if (
         field === "featured" ||
@@ -661,28 +612,40 @@ export async function update(req, res) {
       }
 
       /*
-      |--------------------------------------------------------------------------
-      | Numeric
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | MRP
+          |--------------------------------------------------------------------------
+          */
 
       if (field === "mrp") {
         return toNumber(x[field], toNumber(old.mrp));
       }
 
+      /*
+          |--------------------------------------------------------------------------
+          | Selling Price
+          |--------------------------------------------------------------------------
+          */
+
       if (field === "selling_price") {
         return toNumber(x[field], toNumber(old.selling_price));
       }
+
+      /*
+          |--------------------------------------------------------------------------
+          | Set Quantity
+          |--------------------------------------------------------------------------
+          */
 
       if (field === "set_quantity") {
         return toNumber(x[field], toNumber(old.set_quantity, 1));
       }
 
       /*
-      |--------------------------------------------------------------------------
-      | Category
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | Category
+          |--------------------------------------------------------------------------
+          */
 
       if (field === "category_id") {
         if (x[field] === undefined) {
@@ -699,10 +662,10 @@ export async function update(req, res) {
       }
 
       /*
-      |--------------------------------------------------------------------------
-      | Material
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | Material
+          |--------------------------------------------------------------------------
+          */
 
       if (field === "material_id") {
         if (x[field] === undefined) {
@@ -719,20 +682,20 @@ export async function update(req, res) {
       }
 
       /*
-      |--------------------------------------------------------------------------
-      | Status
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | Status
+          |--------------------------------------------------------------------------
+          */
 
       if (field === "status") {
         return nullableString(x[field]) || old.status || "active";
       }
 
       /*
-      |--------------------------------------------------------------------------
-      | Strings
-      |--------------------------------------------------------------------------
-      */
+          |--------------------------------------------------------------------------
+          | String / Optional Fields
+          |--------------------------------------------------------------------------
+          */
 
       if (x[field] === undefined) {
         return old[field] ?? null;
@@ -743,42 +706,57 @@ export async function update(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | UPDATE
+    | Update Product
     |--------------------------------------------------------------------------
     */
 
     await query(
       `
-      UPDATE products
-      SET
-        ${productFields.map((field) => `${field} = ?`).join(",")},
-        slug = ?,
-        updated_at = NOW()
-      WHERE id = ?
+        UPDATE products
+
+        SET
+          ${productFields.map((field) => `${field} = ?`).join(",")},
+
+          slug = ?,
+
+          updated_at = NOW()
+
+        WHERE id = ?
       `,
       [...values, slug, id],
     );
 
     /*
     |--------------------------------------------------------------------------
-    | Get updated product
+    | Updated Product
     |--------------------------------------------------------------------------
     */
 
     const productRows = await query(
       `
-        SELECT
-          p.*,
-          c.name AS category_name,
-          m.name AS material_name
-        FROM products p
-        LEFT JOIN categories c
-          ON c.id = p.category_id
-        LEFT JOIN materials m
-          ON m.id = p.material_id
-        WHERE p.id = ?
-        LIMIT 1
-      `,
+          SELECT
+            p.*,
+
+            c.name
+              AS category_name,
+
+            m.name
+              AS material_name
+
+          FROM products p
+
+          LEFT JOIN categories c
+            ON c.id =
+               p.category_id
+
+          LEFT JOIN materials m
+            ON m.id =
+               p.material_id
+
+          WHERE p.id = ?
+
+          LIMIT 1
+        `,
       [id],
     );
 
@@ -812,13 +790,22 @@ export async function destroy(req, res) {
       return fail(res, "Invalid product ID.", 422);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Product Exists
+    |--------------------------------------------------------------------------
+    */
+
     const productRows = await query(
       `
-        SELECT id
-        FROM products
-        WHERE id = ?
-        LIMIT 1
-      `,
+          SELECT id
+
+          FROM products
+
+          WHERE id = ?
+
+          LIMIT 1
+        `,
       [id],
     );
 
@@ -826,10 +813,17 @@ export async function destroy(req, res) {
       return fail(res, "Product not found.", 404);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Delete
+    |--------------------------------------------------------------------------
+    */
+
     await query(
       `
-      DELETE FROM products
-      WHERE id = ?
+        DELETE FROM products
+
+        WHERE id = ?
       `,
       [id],
     );
@@ -851,15 +845,21 @@ export async function destroy(req, res) {
 | UPLOAD PRODUCT IMAGE
 |--------------------------------------------------------------------------
 |
-| IMPORTANT:
-|
-| This function expects:
-|
-| req.file
-|
-| Therefore multer must use:
+| Route must use:
 |
 | upload.single("image")
+|
+| Body can contain:
+|
+| color_id
+| is_primary
+| sort_order
+| alt_text
+|
+| color_id:
+|
+| NULL / empty = General image
+| Number       = Specific color
 |
 |--------------------------------------------------------------------------
 */
@@ -868,13 +868,19 @@ export async function images(req, res) {
   try {
     const productId = Number(req.params.id);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Validate Product ID
+    |--------------------------------------------------------------------------
+    */
+
     if (!Number.isInteger(productId) || productId <= 0) {
       return fail(res, "Invalid product ID.", 422);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | File check
+    | Image Required
     |--------------------------------------------------------------------------
     */
 
@@ -884,72 +890,170 @@ export async function images(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Product check
+    | Validate Product
     |--------------------------------------------------------------------------
     */
 
-    const productRows = await query(
-      `
-        SELECT id
-        FROM products
-        WHERE id = ?
-        LIMIT 1
-      `,
-      [productId],
-    );
+    const product = (
+      await query(
+        `
+          SELECT id
 
-    if (!productRows[0]) {
+          FROM products
+
+          WHERE id = ?
+
+          LIMIT 1
+        `,
+        [productId],
+      )
+    )[0];
+
+    if (!product) {
       return fail(res, "Product not found.", 404);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Existing image count
+    | Optional Color
     |--------------------------------------------------------------------------
     */
 
-    const countRows = await query(
-      `
-        SELECT
-          COUNT(*) AS count
-        FROM product_images
-        WHERE product_id = ?
-      `,
-      [productId],
-    );
+    const rawColorId = req.body?.color_id;
 
-    const count = Number(countRows[0]?.count || 0);
+    const colorId =
+      rawColorId === undefined || rawColorId === null || rawColorId === ""
+        ? null
+        : Number(rawColorId);
 
     /*
     |--------------------------------------------------------------------------
-    | Primary image
+    | Validate Selected Color
+    |--------------------------------------------------------------------------
+    */
+
+    if (colorId !== null) {
+      if (!Number.isInteger(colorId) || colorId <= 0) {
+        return fail(res, "Invalid color.", 422);
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | The selected color must actually belong to this product's variants.
+      |--------------------------------------------------------------------------
+      */
+
+      const color = (
+        await query(
+          `
+            SELECT DISTINCT
+              c.id
+
+            FROM product_variants pv
+
+            INNER JOIN colors c
+              ON c.id =
+                 pv.color_id
+
+            WHERE
+              pv.product_id = ?
+
+              AND pv.color_id = ?
+
+              AND c.status =
+                  'active'
+
+            LIMIT 1
+          `,
+          [productId, colorId],
+        )
+      )[0];
+
+      if (!color) {
+        return fail(
+          res,
+          "Selected color is not available for this product.",
+          422,
+        );
+      }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Existing Images in Same Group
+    |--------------------------------------------------------------------------
+    |
+    | Each group has its own primary:
+    |
+    | General / NULL
+    | Pink
+    | Black
+    | Maroon
+    |
+    | MySQL <=> performs NULL-safe comparison.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    const countRow = (
+      await query(
+        `
+          SELECT
+            COUNT(*) AS count
+
+          FROM product_images
+
+          WHERE
+            product_id = ?
+
+            AND color_id <=> ?
+        `,
+        [productId, colorId],
+      )
+    )[0];
+
+    const count = Number(countRow?.count || 0);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Primary
     |--------------------------------------------------------------------------
     */
 
     const requestedPrimary = toBool(req.body?.is_primary);
 
+    /*
+    | First image in each color group becomes primary automatically.
+    */
+
     const isPrimary = count === 0 || requestedPrimary ? 1 : 0;
 
     /*
     |--------------------------------------------------------------------------
-    | Remove previous primary
+    | Remove Existing Primary Only From Same Color Group
     |--------------------------------------------------------------------------
     */
 
     if (isPrimary) {
       await query(
         `
-        UPDATE product_images
-        SET is_primary = 0
-        WHERE product_id = ?
+          UPDATE product_images
+
+          SET
+            is_primary = 0
+
+          WHERE
+            product_id = ?
+
+            AND color_id <=> ?
         `,
-        [productId],
+        [productId, colorId],
       );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Sort order
+    | Sort Order
     |--------------------------------------------------------------------------
     */
 
@@ -961,15 +1065,19 @@ export async function images(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Image path
+    | Image Path
     |--------------------------------------------------------------------------
     */
 
-    const imagePath = getUploadedFilePath(req.file, "products");
+    const imagePath = uploadedImageValue(req.file, "products");
+
+    if (!imagePath) {
+      return fail(res, "Unable to determine uploaded image path.", 500);
+    }
 
     /*
     |--------------------------------------------------------------------------
-    | Alt text
+    | Alt Text
     |--------------------------------------------------------------------------
     */
 
@@ -977,53 +1085,59 @@ export async function images(req, res) {
 
     /*
     |--------------------------------------------------------------------------
-    | Insert image
+    | Insert Product Image
     |--------------------------------------------------------------------------
     */
 
     const result = await query(
       `
-        INSERT INTO product_images
-        (
-          product_id,
-          image,
-          alt_text,
-          sort_order,
-          is_primary,
-          created_at,
-          updated_at
-        )
-        VALUES
-        (
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          NOW(),
-          NOW()
-        )
+          INSERT INTO product_images
+          (
+            product_id,
+            color_id,
+            image,
+            alt_text,
+            sort_order,
+            is_primary,
+            created_at,
+            updated_at
+          )
+
+          VALUES
+          (
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            NOW(),
+            NOW()
+          )
         `,
-      [productId, imagePath, altText, sortOrder, isPrimary],
+      [productId, colorId, imagePath, altText, sortOrder, isPrimary],
     );
 
     /*
     |--------------------------------------------------------------------------
-    | Get image
+    | Return Created Image
     |--------------------------------------------------------------------------
     */
 
-    const imageRows = await query(
-      `
-        SELECT *
-        FROM product_images
-        WHERE id = ?
-        LIMIT 1
-      `,
-      [result.insertId],
-    );
+    const image = (
+      await query(
+        `
+          SELECT *
 
-    const image = imageRows[0];
+          FROM product_images
+
+          WHERE id = ?
+
+          LIMIT 1
+        `,
+        [result.insertId],
+      )
+    )[0];
 
     return ok(
       res,
@@ -1034,6 +1148,19 @@ export async function images(req, res) {
 
         data: {
           ...image,
+
+          id: Number(image.id),
+
+          product_id: Number(image.product_id),
+
+          color_id:
+            image.color_id !== null && image.color_id !== undefined
+              ? Number(image.color_id)
+              : null,
+
+          sort_order: Number(image.sort_order || 0),
+
+          is_primary: toBool(image.is_primary),
 
           url: imageUrl(image.image),
         },
@@ -1057,33 +1184,104 @@ export async function deleteImage(req, res) {
   try {
     const id = Number(req.params.id);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Validate ID
+    |--------------------------------------------------------------------------
+    */
+
     if (!Number.isInteger(id) || id <= 0) {
       return fail(res, "Invalid image ID.", 422);
     }
 
-    const imageRows = await query(
-      `
-        SELECT *
-        FROM product_images
-        WHERE id = ?
-        LIMIT 1
-      `,
-      [id],
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | Find Image
+    |--------------------------------------------------------------------------
+    */
 
-    const image = imageRows[0];
+    const image = (
+      await query(
+        `
+          SELECT *
+
+          FROM product_images
+
+          WHERE id = ?
+
+          LIMIT 1
+        `,
+        [id],
+      )
+    )[0];
 
     if (!image) {
       return fail(res, "Image not found.", 404);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Delete
+    |--------------------------------------------------------------------------
+    */
+
     await query(
       `
-      DELETE FROM product_images
-      WHERE id = ?
+        DELETE FROM product_images
+
+        WHERE id = ?
       `,
       [id],
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | If Deleted Image Was Primary
+    |--------------------------------------------------------------------------
+    |
+    | Promote the first image from the same color group.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    if (toBool(image.is_primary)) {
+      const replacement = (
+        await query(
+          `
+            SELECT id
+
+            FROM product_images
+
+            WHERE
+              product_id = ?
+
+              AND color_id <=> ?
+
+            ORDER BY
+              sort_order ASC,
+              id ASC
+
+            LIMIT 1
+          `,
+          [image.product_id, image.color_id ?? null],
+        )
+      )[0];
+
+      if (replacement) {
+        await query(
+          `
+            UPDATE product_images
+
+            SET
+              is_primary = 1,
+              updated_at = NOW()
+
+            WHERE id = ?
+          `,
+          [replacement.id],
+        );
+      }
+    }
 
     return ok(res, {
       success: true,
@@ -1101,46 +1299,98 @@ export async function deleteImage(req, res) {
 |--------------------------------------------------------------------------
 | SET PRIMARY IMAGE
 |--------------------------------------------------------------------------
+|
+| IMPORTANT:
+|
+| Primary is scoped by:
+|
+| product_id + color_id
+|
+| Example:
+|
+| General        → one primary
+| Light Pink     → one primary
+| Black          → one primary
+| Deep Maroon    → one primary
+|
+|--------------------------------------------------------------------------
 */
 
 export async function primaryImage(req, res) {
   try {
     const id = Number(req.params.id);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Validate ID
+    |--------------------------------------------------------------------------
+    */
+
     if (!Number.isInteger(id) || id <= 0) {
       return fail(res, "Invalid image ID.", 422);
     }
 
-    const imageRows = await query(
-      `
-        SELECT *
-        FROM product_images
-        WHERE id = ?
-        LIMIT 1
-      `,
-      [id],
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | Find Image
+    |--------------------------------------------------------------------------
+    */
 
-    const image = imageRows[0];
+    const image = (
+      await query(
+        `
+          SELECT *
+
+          FROM product_images
+
+          WHERE id = ?
+
+          LIMIT 1
+        `,
+        [id],
+      )
+    )[0];
 
     if (!image) {
       return fail(res, "Image not found.", 404);
     }
 
-    await query(
-      `
-      UPDATE product_images
-      SET is_primary = 0
-      WHERE product_id = ?
-      `,
-      [image.product_id],
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | Remove Primary From Same Color Group Only
+    |--------------------------------------------------------------------------
+    */
 
     await query(
       `
-      UPDATE product_images
-      SET is_primary = 1
-      WHERE id = ?
+        UPDATE product_images
+
+        SET
+          is_primary = 0
+
+        WHERE
+          product_id = ?
+
+          AND color_id <=> ?
+      `,
+      [image.product_id, image.color_id ?? null],
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Set Requested Image Primary
+    |--------------------------------------------------------------------------
+    */
+
+    await query(
+      `
+        UPDATE product_images
+
+        SET
+          is_primary = 1,
+          updated_at = NOW()
+
+        WHERE id = ?
       `,
       [id],
     );

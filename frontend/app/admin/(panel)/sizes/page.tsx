@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -13,6 +15,8 @@ type Size = {
 };
 
 export default function SizesPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   const [sizes, setSizes] = useState<Size[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -129,7 +133,14 @@ export default function SizesPage() {
   }
 
   async function deleteSize(id: number) {
-    if (!window.confirm("Delete this size?")) {
+    const confirmed = await confirm({
+      title: "Delete size?",
+      description: "Delete this size from the catalog? Products already using it may prevent deletion.",
+      confirmLabel: "Delete size",
+      tone: "danger",
+    });
+
+    if (!confirmed) {
       return;
     }
 

@@ -5,8 +5,6 @@ const BACKEND_URL = API_URL.replace(
   ""
 );
 
-const CLOUDINARY_BASE_URL = "https://res.cloudinary.com/dvqm3ilsg/image/upload/";
-
 export function getProductImageUrl(
   image?: string | null
 ): string | null {
@@ -21,10 +19,9 @@ export function getProductImageUrl(
     return image;
   }
 
-  const clean = image.replace(/^\/+/, "").replace(/^storage\//, "");
-  const pathWithFolder = clean.startsWith("banglesmart/")
-    ? clean
-    : `banglesmart/${clean}`;
-
-  return `${CLOUDINARY_BASE_URL}${pathWithFolder}`;
-}
+  return `${BACKEND_URL}${
+    image.startsWith("/")
+      ? ""
+      : "/"
+  }${image}`;
+}

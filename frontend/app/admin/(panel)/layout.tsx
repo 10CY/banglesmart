@@ -1,6 +1,5 @@
-import AdminSidebar from "@/components/admin/AdminSidebar";
-import AdminTopbar from "@/components/admin/AdminTopbar";
 import AdminAuthGuard from "@/components/admin/AdminAuthGuard";
+import AdminShell from "@/components/admin/AdminShell";
 
 export default function AdminPanelLayout({
   children,
@@ -9,21 +8,7 @@ export default function AdminPanelLayout({
 }) {
   return (
     <AdminAuthGuard>
-      <div className="min-h-screen bg-gray-50">
-
-        <AdminSidebar />
-
-        <div className="ml-64">
-
-          <AdminTopbar />
-
-          <main className="p-6">
-            {children}
-          </main>
-
-        </div>
-
-      </div>
+      <AdminShell>{children}</AdminShell>
     </AdminAuthGuard>
   );
 }

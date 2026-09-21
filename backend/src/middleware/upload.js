@@ -86,14 +86,3 @@ export function imageUpload(folder) {
     },
   });
 }
-
-export function getUploadedFilePath(file, folder) {
-  if (!file) return null;
-  if (file.path && /^https?:\/\//i.test(file.path)) {
-    return file.path;
-  }
-  if (file.secure_url) {
-    return file.secure_url;
-  }
-  return `${folder}/${file.filename}`;
-}

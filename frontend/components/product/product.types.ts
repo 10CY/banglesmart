@@ -2,108 +2,124 @@
 
 import type { StoreProductCardData } from "@/components/store/ProductCard";
 
-/*
-|--------------------------------------------------------------------------
-| Product Image
-|--------------------------------------------------------------------------
-*/
-
 export type ProductImage = {
   id: number;
-  image: string;
-  alt_text: string | null;
-  is_primary: boolean;
-};
 
-/*
-|--------------------------------------------------------------------------
-| Size
-|--------------------------------------------------------------------------
-*/
+  product_id?: number;
+
+  design_option_id?: number;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Color-specific image
+  |--------------------------------------------------------------------------
+  |
+  | null / undefined = General image
+  | number           = Image belongs to that color
+  |
+  */
+  color_id?: number | null;
+
+  image: string;
+
+  url?: string | null;
+
+  alt_text: string | null;
+
+  is_primary: boolean;
+
+  sort_order?: number;
+};
 
 export type Size = {
   id: number;
+
   name: string;
+
   display_name: string | null;
 };
-
-/*
-|--------------------------------------------------------------------------
-| Color
-|--------------------------------------------------------------------------
-*/
 
 export type Color = {
   id: number;
+
   name: string;
+
   display_name: string | null;
+
   hex_code: string | null;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Inventory
-|--------------------------------------------------------------------------
-*/
-
 export type Inventory = {
   quantity: number;
-  reserved_quantity: number;
-};
 
-/*
-|--------------------------------------------------------------------------
-| Material
-|--------------------------------------------------------------------------
-*/
+  reserved_quantity: number;
+
+  available_quantity?: number;
+};
 
 export type Material = {
   id: number;
+
   name: string;
 };
-
-/*
-|--------------------------------------------------------------------------
-| Variant
-|--------------------------------------------------------------------------
-*/
 
 export type Variant = {
   id: number;
 
   size_id: number;
+
   color_id: number;
 
   sku: string;
 
   mrp: string | number;
+
   selling_price: string | number;
 
   status: string;
 
   size: Size | null;
+
   color: Color | null;
 
   inventory: Inventory | null;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Review User
-|--------------------------------------------------------------------------
-*/
+export type DesignOption = {
+  id: number;
+
+  product_id: number;
+
+  label: string | null;
+
+  status: string;
+
+  sort_order: number;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Design Images
+  |--------------------------------------------------------------------------
+  |
+  | Each image can now optionally belong to a color.
+  |
+  | Example:
+  |
+  | Square + Pink
+  | Square + Black
+  | Square + Deep Maroon
+  |
+  */
+  images: ProductImage[];
+};
 
 export type ReviewUser = {
   id: number;
+
   name: string;
+
   email?: string;
 };
-
-/*
-|--------------------------------------------------------------------------
-| Review
-|--------------------------------------------------------------------------
-*/
 
 export type Review = {
   id: number;
@@ -127,12 +143,6 @@ export type Review = {
   user?: ReviewUser;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Recommended Product
-|--------------------------------------------------------------------------
-*/
-
 export type RecommendedProduct = {
   id: number;
 
@@ -154,7 +164,9 @@ export type RecommendedProduct = {
 
   category?: {
     id: number;
+
     name: string;
+
     slug: string;
   } | null;
 
@@ -166,12 +178,6 @@ export type RecommendedProduct = {
 
   new_arrival?: boolean;
 };
-
-/*
-|--------------------------------------------------------------------------
-| Product
-|--------------------------------------------------------------------------
-*/
 
 export type Product = {
   id: number;
@@ -196,59 +202,54 @@ export type Product = {
 
   new_arrival: boolean;
 
-  /*
-  |--------------------------------------------------------------------------
-  | Category
-  |--------------------------------------------------------------------------
-  */
-
   category: {
     id: number;
+
     name: string;
+
     slug: string;
   } | null;
-
-  /*
-  |--------------------------------------------------------------------------
-  | Material
-  |--------------------------------------------------------------------------
-  */
 
   material: Material | null;
 
   /*
   |--------------------------------------------------------------------------
-  | Images
+  | Product Images
   |--------------------------------------------------------------------------
+  |
+  | These may be:
+  |
+  | General images
+  | or
+  | Color-specific images
+  |
   */
-
   images: ProductImage[];
 
   /*
   |--------------------------------------------------------------------------
   | Variants
   |--------------------------------------------------------------------------
+  |
+  | Each variant represents:
+  |
+  | Size + Color
+  |
   */
-
   variants: Variant[];
 
   /*
   |--------------------------------------------------------------------------
-  | Reviews
+  | Optional Design Options
   |--------------------------------------------------------------------------
   */
+  design_options?: DesignOption[];
 
   reviews?: Review[];
 
   review_count?: number;
 
   review_average?: number;
-
-  /*
-  |--------------------------------------------------------------------------
-  | Recommended Products
-  |--------------------------------------------------------------------------
-  */
 
   recommended?: StoreProductCardData[];
 };

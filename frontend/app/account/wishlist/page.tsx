@@ -24,14 +24,13 @@ import {
   useRouter,
 } from "next/navigation";
 
-import {
-  customerApiFetch,
-} from "@/lib/customerApi";
+import { getWishlist, removeWishlistItem } from "@/features/wishlist/wishlist.api";
+import { useCommerce } from "@/features/commerce/CommerceProvider";
+import { useFeedback } from "@/components/ui/FeedbackProvider";
 
 import {
   BACKEND_URL,
 } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -80,6 +79,8 @@ type WishlistData = {
 
 export default function WishlistPage() {
   const router = useRouter();
+  const { setWishlistCount } = useCommerce();
+  const { toast } = useFeedback();
 
   const [wishlist, setWishlist] =
     useState<WishlistData | null>(null);
@@ -109,69 +110,13 @@ export default function WishlistPage() {
   /* Load Wishlist                                                            */
   /* ------------------------------------------------------------------------ */
 
-  const loadWishlist =
-    useCallback(async () => {
-      const token =
-        localStorage.getItem(
-          "customer_token"
-        );
-
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError("");
-
-        const response =
-          await customerApiFetch(
-            "/customer/wishlist"
-          );
-
-        const data =
-          await response.json();
-
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-          localStorage.removeItem(
-            "customer_token"
-          );
-
-          localStorage.removeItem(
-            "customer_user"
-          );
-
-          router.replace("/login");
-
-          return;
-        }
-
-        if (!response.ok) {
-          setError(
-            data.message ||
-              "Unable to load wishlist."
-          );
-
-          return;
-        }
-
-        setWishlist(
-          data.data
-        );
-
-      } catch {
-        setError(
-          "Unable to connect to server."
-        );
-
-      } finally {
-        setLoading(false);
-      }
-    }, [router]);
+  const loadWishlist = useCallback(async () => {
+    const token = localStorage.getItem("customer_token");
+    if (!token) { router.replace("/login?redirect=/account/wishlist"); return; }
+    try { setLoading(true); setError(""); const data = await getWishlist(); setWishlist(data as WishlistData); setWishlistCount(Number(data.item_count || 0)); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to load wishlist."); }
+    finally { setLoading(false); }
+  }, [router, setWishlistCount]);
 
   useEffect(() => {
     loadWishlist();
@@ -215,97 +160,15 @@ export default function WishlistPage() {
   /* Remove Item                                                              */
   /* ------------------------------------------------------------------------ */
 
-  async function removeItem(
-    itemId: number
-  ) {
+  async function removeItem(itemId: number) {
     try {
-      setRemovingId(
-        itemId
-      );
-
-      const response =
-        await customerApiFetch(
-          `/customer/wishlist/${itemId}`,
-          {
-            method: "DELETE",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data.message ||
-            "Unable to remove product."
-        );
-
-        return;
-      }
-
-      /*
-      |----------------------------------------------------------------------
-      | Update Wishlist
-      |----------------------------------------------------------------------
-      */
-
-      setWishlist(
-        (previous) => {
-          if (!previous) {
-            return previous;
-          }
-
-          const items =
-            previous.items.filter(
-              (item) =>
-                item.id !== itemId
-            );
-
-          return {
-            ...previous,
-            items,
-            item_count:
-              items.length,
-          };
-        }
-      );
-
-      /*
-      |----------------------------------------------------------------------
-      | Refresh Header Count
-      |----------------------------------------------------------------------
-      */
-
-      window.dispatchEvent(
-        new Event(
-          "banglesmart:customer-refresh"
-        )
-      );
-
-      /*
-      |----------------------------------------------------------------------
-      | Close Modal
-      |----------------------------------------------------------------------
-      */
-
-      setRemoveModalOpen(
-        false
-      );
-
-      setSelectedItemId(
-        null
-      );
-
-    } catch {
-      window.alert(
-        "Unable to connect to server."
-      );
-
-    } finally {
-      setRemovingId(
-        null
-      );
-    }
+      setRemovingId(itemId);
+      const data = await removeWishlistItem(itemId);
+      setWishlist(data as WishlistData);
+      setWishlistCount(Number(data.item_count || 0));
+      setRemoveModalOpen(false); setSelectedItemId(null);
+    } catch (err) { toast(err instanceof Error ? err.message : "Unable to remove product.", "error"); }
+    finally { setRemovingId(null); }
   }
 
   /* ------------------------------------------------------------------------ */
@@ -358,9 +221,28 @@ export default function WishlistPage() {
   /* Image URL                                                                */
   /* ------------------------------------------------------------------------ */
 
-  function getImageUrl(image?: string | null) {
-    if (!image) return null;
-    return getProductImageUrl(image);
+  function getImageUrl(
+    image?: string | null
+  ) {
+    if (!image) {
+      return null;
+    }
+
+    if (
+      image.startsWith(
+        "http://"
+      ) ||
+      image.startsWith(
+        "https://"
+      )
+    ) {
+      return image;
+    }
+
+    return `${BACKEND_URL}/storage/${image.replace(
+      /^\/+/,
+      ""
+    )}`;
   }
 
   /* ------------------------------------------------------------------------ */

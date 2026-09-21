@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   FormEvent,
   useCallback,
@@ -352,6 +354,8 @@ function normalizeVariant(
 export default function ProductVariants({
   productId,
 }: Props) {
+  const { confirm, toast } = useAdminFeedback();
+
 
   const [
     variants,
@@ -896,11 +900,6 @@ export default function ProductVariants({
       };
 
 
-      console.log(
-        "Saving variant:",
-        payload
-      );
-
 
       /* -------------------------------------------------------------- */
       /* Request                                                        */
@@ -989,10 +988,12 @@ export default function ProductVariants({
     id: number
   ) {
 
-    const confirmed =
-      window.confirm(
-        "Delete this variant?"
-      );
+    const confirmed = await confirm({
+      title: "Delete variant?",
+      description: "This size and color variant will be permanently removed together with its inventory record.",
+      confirmLabel: "Delete variant",
+      tone: "danger",
+    });
 
     if (!confirmed) {
       return;
@@ -1016,10 +1017,7 @@ export default function ProductVariants({
 
       if (!response.ok) {
 
-        window.alert(
-          data?.message ||
-            "Unable to delete variant."
-        );
+        toast(data?.message || "Unable to delete variant.", "error");
 
         return;
       }
@@ -1034,9 +1032,7 @@ export default function ProductVariants({
         err
       );
 
-      window.alert(
-        "Unable to connect to server."
-      );
+      toast("Unable to connect to server.", "error");
     }
   }
 

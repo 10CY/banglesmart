@@ -25,14 +25,13 @@ import {
 
 import { useRouter } from "next/navigation";
 
-import {
-  customerApiFetch,
-} from "@/lib/customerApi";
+import { getCart, updateCartItem, removeCartItem, clearCart as clearCartApi } from "@/features/cart/cart.api";
+import { useCommerce } from "@/features/commerce/CommerceProvider";
+import { useFeedback } from "@/components/ui/FeedbackProvider";
 
 import {
   BACKEND_URL,
 } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -79,6 +78,7 @@ type CartItem = {
   id: number;
   quantity: number;
   line_total: number;
+  design_option?: { id:number; label:string; status?:string } | null;
   variant: CartVariant;
 };
 
@@ -100,6 +100,8 @@ type ModalType =
 
 export default function CartPage() {
   const router = useRouter();
+  const { setCartCount } = useCommerce();
+  const { toast } = useFeedback();
 
   const [cart, setCart] =
     useState<Cart | null>(null);
@@ -129,67 +131,18 @@ export default function CartPage() {
   /* Load Cart                                                                */
   /* ------------------------------------------------------------------------ */
 
-  const loadCart =
-    useCallback(async () => {
-      const token =
-        localStorage.getItem(
-          "customer_token"
-        );
-
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError("");
-
-        const response =
-          await customerApiFetch(
-            "/customer/cart"
-          );
-
-        const data =
-          await response.json();
-
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-          localStorage.removeItem(
-            "customer_token"
-          );
-
-          localStorage.removeItem(
-            "customer_user"
-          );
-
-          router.replace("/login");
-
-          return;
-        }
-
-        if (!response.ok) {
-          setError(
-            data.message ||
-              "Unable to load cart."
-          );
-
-          return;
-        }
-
-        setCart(data.data);
-
-      } catch {
-        setError(
-          "Unable to connect to server."
-        );
-
-      } finally {
-        setLoading(false);
-      }
-    }, [router]);
+  const loadCart = useCallback(async () => {
+    const token = localStorage.getItem("customer_token");
+    if (!token) { router.replace("/login?redirect=/cart"); return; }
+    try {
+      setLoading(true); setError("");
+      const data = await getCart();
+      setCart(data as Cart);
+      setCartCount(Number(data.item_count || 0));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load cart.");
+    } finally { setLoading(false); }
+  }, [router, setCartCount]);
 
   useEffect(() => {
     loadCart();
@@ -227,119 +180,33 @@ export default function CartPage() {
   /* Update Quantity                                                          */
   /* ------------------------------------------------------------------------ */
 
-  async function updateQuantity(
-    item: CartItem,
-    quantity: number
-  ) {
-    if (quantity < 1) {
+  async function updateQuantity(item: CartItem, quantity: number) {
+    if (quantity < 1) return;
+    if (quantity > item.variant.available_quantity) {
+      toast(`Only ${item.variant.available_quantity} item(s) available.`, "info");
       return;
     }
-
-    if (
-      quantity >
-      item.variant.available_quantity
-    ) {
-      window.alert(
-        `Only ${item.variant.available_quantity} item(s) available.`
-      );
-
-      return;
-    }
-
     try {
       setUpdatingId(item.id);
-
-      const response =
-        await customerApiFetch(
-          `/customer/cart/items/${item.id}`,
-          {
-            method: "PUT",
-
-            body: JSON.stringify({
-              quantity,
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data.message ||
-            "Unable to update quantity."
-        );
-
-        return;
-      }
-
-      setCart(data.data);
-
-      window.dispatchEvent(
-        new Event(
-          "banglesmart:customer-refresh"
-        )
-      );
-
-    } catch {
-      window.alert(
-        "Unable to connect to server."
-      );
-
-    } finally {
-      setUpdatingId(null);
-    }
+      const data = await updateCartItem(item.id, quantity);
+      setCart(data as Cart);
+      setCartCount(Number(data.item_count || 0));
+    } catch (err) { toast(err instanceof Error ? err.message : "Unable to update quantity.", "error"); }
+    finally { setUpdatingId(null); }
   }
 
   /* ------------------------------------------------------------------------ */
   /* Remove Item                                                              */
   /* ------------------------------------------------------------------------ */
 
-  async function removeItem(
-    itemId: number
-  ) {
+  async function removeItem(itemId: number) {
     try {
       setUpdatingId(itemId);
-
-      const response =
-        await customerApiFetch(
-          `/customer/cart/items/${itemId}`,
-          {
-            method: "DELETE",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data.message ||
-            "Unable to remove item."
-        );
-
-        return;
-      }
-
-      setCart(data.data);
-
-      window.dispatchEvent(
-        new Event(
-          "banglesmart:customer-refresh"
-        )
-      );
-
-      setModalType(null);
-      setSelectedItemId(null);
-
-    } catch {
-      window.alert(
-        "Unable to connect to server."
-      );
-
-    } finally {
-      setUpdatingId(null);
-    }
+      const data = await removeCartItem(itemId);
+      setCart(data as Cart); setCartCount(Number(data.item_count || 0));
+      setModalType(null); setSelectedItemId(null);
+    } catch (err) { toast(err instanceof Error ? err.message : "Unable to remove item.", "error"); }
+    finally { setUpdatingId(null); }
   }
 
   /* ------------------------------------------------------------------------ */
@@ -349,45 +216,10 @@ export default function CartPage() {
   async function clearCart() {
     try {
       setUpdatingId(-1);
-
-      const response =
-        await customerApiFetch(
-          "/customer/cart",
-          {
-            method: "DELETE",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        window.alert(
-          data.message ||
-            "Unable to clear cart."
-        );
-
-        return;
-      }
-
-      setCart(data.data);
-
-      window.dispatchEvent(
-        new Event(
-          "banglesmart:customer-refresh"
-        )
-      );
-
-      setModalType(null);
-
-    } catch {
-      window.alert(
-        "Unable to connect to server."
-      );
-
-    } finally {
-      setUpdatingId(null);
-    }
+      const data = await clearCartApi();
+      setCart(data as Cart); setCartCount(Number(data.item_count || 0)); setModalType(null);
+    } catch (err) { toast(err instanceof Error ? err.message : "Unable to clear cart.", "error"); }
+    finally { setUpdatingId(null); }
   }
 
   /* ------------------------------------------------------------------------ */
@@ -430,9 +262,24 @@ export default function CartPage() {
   /* Image URL                                                                */
   /* ------------------------------------------------------------------------ */
 
-  function getImageUrl(image?: string | null) {
-    if (!image) return null;
-    return getProductImageUrl(image);
+  function getImageUrl(
+    image?: string | null
+  ) {
+    if (!image) {
+      return null;
+    }
+
+    if (
+      image.startsWith("http://") ||
+      image.startsWith("https://")
+    ) {
+      return image;
+    }
+
+    return `${BACKEND_URL}/storage/${image.replace(
+      /^\/+/,
+      ""
+    )}`;
   }
 
   /* ------------------------------------------------------------------------ */
@@ -812,6 +659,12 @@ export default function CartPage() {
                               </span>
 
                             </div>
+
+                            {item.design_option?.label && (
+                              <div className="rounded-full bg-[#fff4f1] px-3 py-1.5 text-xs text-[#8f0828]">
+                                Design: <span className="font-semibold">{item.design_option.label}</span>
+                              </div>
+                            )}
 
                           </div>
 

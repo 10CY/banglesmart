@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   FormEvent,
   useCallback,
@@ -18,7 +20,6 @@ import {
 } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -66,9 +67,26 @@ type ApiResponse = {
 /* -------------------------------------------------------------------------- */
 
 function getImageUrl(category: Category): string {
-  const raw = category.image_url || category.image;
-  if (!raw) return "";
-  return getProductImageUrl(raw) || "";
+  if (category.image_url) {
+    return category.image_url;
+  }
+
+  if (!category.image) {
+    return "";
+  }
+
+  if (
+    category.image.startsWith("http://") ||
+    category.image.startsWith("https://")
+  ) {
+    return category.image;
+  }
+
+  const backendUrl =
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://127.0.0.1:8000";
+
+  return `${backendUrl}/storage/${category.image.replace(/^\/+/, "")}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -76,6 +94,8 @@ function getImageUrl(category: Category): string {
 /* -------------------------------------------------------------------------- */
 
 export default function CategoriesPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   /* ------------------------------------------------------------------------ */
   /* State                                                                    */
   /* ------------------------------------------------------------------------ */
@@ -543,9 +563,12 @@ export default function CategoriesPage() {
   async function deleteCategory(
     category: Category,
   ) {
-    const confirmed = window.confirm(
-      `Delete "${category.name}"?\n\nAre you sure you want to delete this category?`,
-    );
+    const confirmed = await confirm({
+      title: "Delete category?",
+      description: `Delete "${category.name}"? Products or child categories using it may prevent deletion.`,
+      confirmLabel: "Delete category",
+      tone: "danger",
+    });
 
     if (!confirmed) {
       return;

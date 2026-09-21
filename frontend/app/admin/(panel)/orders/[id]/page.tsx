@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import {
   useCallback,
   useEffect,
@@ -29,7 +31,6 @@ import {
   apiFetch,
   BACKEND_URL,
 } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -145,6 +146,8 @@ type Order = {
 /* -------------------------------------------------------------------------- */
 
 export default function AdminOrderDetailPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   const params =
     useParams();
 
@@ -332,10 +335,12 @@ export default function AdminOrderDetailPage() {
         "Cancel this order? Reserved inventory will be released.";
     }
 
-    const confirmed =
-      window.confirm(
-        message
-      );
+    const confirmed = await confirm({
+      title: "Update order status?",
+      description: message,
+      confirmLabel: "Update status",
+      tone: newStatus === "cancelled" ? "danger" : "default",
+    });
 
     if (!confirmed) {
       return;
@@ -750,7 +755,7 @@ export default function AdminOrderDetailPage() {
                     {item.image ? (
 
                       <img
-                        src={getProductImageUrl(item.image) || "/logo.png"}
+                        src={`${BACKEND_URL}/storage/${item.image}`}
                         alt={
                           item.product_name
                         }

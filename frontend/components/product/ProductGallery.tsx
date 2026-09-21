@@ -9,9 +9,8 @@ import {
 } from "lucide-react";
 
 import { BACKEND_URL } from "@/lib/api";
-import { getProductImageUrl } from "@/lib/image";
 
-import type { Product } from "./product.types";
+import type { Product, ProductImage } from "./product.types";
 
 
 type Props = {
@@ -20,6 +19,7 @@ type Props = {
   onImageChange: (
     index: number
   ) => void;
+  images?: ProductImage[];
 };
 
 
@@ -27,6 +27,7 @@ export default function ProductGallery({
   product,
   selectedImage,
   onImageChange,
+  images: overrideImages,
 }: Props) {
 
   const [zoomed, setZoomed] =
@@ -34,7 +35,10 @@ export default function ProductGallery({
 
 
   const images =
-    product.images || [];
+    overrideImages || product.images || [];
+
+  const imageSrc = (image: ProductImage) =>
+    image.url || (/^(https?:)?\/\//.test(image.image) ? image.image : `${BACKEND_URL}/storage/${image.image}`);
 
 
   const current =
@@ -83,7 +87,7 @@ export default function ProductGallery({
             {current ? (
 
               <img
-                src={getProductImageUrl(current.image) || "/logo.png"}
+                src={imageSrc(current)}
                 alt={
                   current.alt_text ||
                   product.name
@@ -234,7 +238,7 @@ export default function ProductGallery({
                 >
 
                   <img
-                    src={getProductImageUrl(image.image) || "/logo.png"}
+                    src={imageSrc(image)}
                     alt={
                       image.alt_text ||
                       product.name
@@ -275,7 +279,7 @@ export default function ProductGallery({
         >
 
           <img
-            src={getProductImageUrl(current.image) || "/logo.png"}
+            src={imageSrc(current)}
             alt={product.name}
             className="
               max-h-[90vh]

@@ -92,6 +92,7 @@ export default function DesktopHeader({
             alt="BanglesMart"
             width={190}
             height={80}
+            loading="eager"
             priority
             className="h-16 w-auto object-contain"
           />

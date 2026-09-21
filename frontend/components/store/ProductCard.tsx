@@ -10,9 +10,10 @@ import {
   Check,
 } from "lucide-react";
 
-
-import { getProductImageUrl } from "@/lib/image";
-import { customerApiFetch } from "@/lib/customerApi";
+import { BACKEND_URL } from "@/lib/api";
+import { addCartItem } from "@/features/cart/cart.api";
+import { addWishlistItem, checkWishlist, removeWishlistItem } from "@/features/wishlist/wishlist.api";
+import { useCommerce } from "@/features/commerce/CommerceProvider";
 
 export type StoreProductCardData = {
   id: number;
@@ -21,54 +22,37 @@ export type StoreProductCardData = {
   selling_price: number | string;
   mrp?: number | string | null;
   image?: string | null;
-  image_url?: string | null;
-  images?: Array<{ id: number; image: string; image_url?: string; is_primary?: boolean }>;
   primary_image?: {
     image?: string | null;
   } | null;
-  in_stock?: boolean;
+  review_average?: number;
+  review_count?: number;
   featured?: boolean;
   best_seller?: boolean;
   new_arrival?: boolean;
-  rating?: number;
-  reviews_count?: number;
-  review_average?: number;
-  review_count?: number;
   status?: string;
 };
 
 /* -----------------------------------------
-   IMAGE FORMATTER
+   IMAGE URL
 ----------------------------------------- */
 
-function formatImageUrl(raw?: string | null): string {
+function resolveImage(product: StoreProductCardData) {
+  const raw = product.image || product.primary_image?.image;
+
   if (!raw) {
     return "/logo.png";
   }
 
-  return getProductImageUrl(raw) || "/logo.png";
-}
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
 
-function resolveImage(product: StoreProductCardData) {
-  const raw =
-    product.image_url ||
-    product.image ||
-    product.images?.[0]?.image ||
-    product.primary_image?.image;
+  if (raw.startsWith("/storage/")) {
+    return `${BACKEND_URL}${raw}`;
+  }
 
-  return formatImageUrl(raw);
-}
-
-/* -----------------------------------------
-   CUSTOMER REFRESH EVENT
------------------------------------------ */
-
-function dispatchRefresh(detail: Record<string, number>) {
-  window.dispatchEvent(
-    new CustomEvent("banglesmart:customer-refresh", {
-      detail,
-    })
-  );
+  return `${BACKEND_URL}/storage/${raw.replace(/^\//, "")}`;
 }
 
 /* -----------------------------------------
@@ -82,6 +66,7 @@ export default function ProductCard({
   product: StoreProductCardData;
   compact?: boolean;
 }) {
+  const { requireLogin, setCartCount, setWishlistCount } = useCommerce();
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState<number | null>(null);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -116,23 +101,10 @@ export default function ProductCard({
 
     void (async () => {
       try {
-        const response = await customerApiFetch(
-          `/customer/wishlist/check/${product.id}`
-        );
-
-        if (!response.ok || cancelled) {
-          return;
-        }
-
-        const json = await response.json();
-
-        setWishlisted(Boolean(json?.data?.wishlisted));
-
-        setWishlistItemId(
-          json?.data?.wishlist_item_id
-            ? Number(json.data.wishlist_item_id)
-            : null
-        );
+        const data = await checkWishlist(product.id);
+        if (cancelled) return;
+        setWishlisted(Boolean(data?.wishlisted));
+        setWishlistItemId(data?.wishlist_item_id ? Number(data.wishlist_item_id) : null);
       } catch {
         // Wishlist status is non-blocking.
       }
@@ -152,80 +124,24 @@ export default function ProductCard({
   ) {
     event.preventDefault();
     event.stopPropagation();
-
-    const token = localStorage.getItem("customer_token");
-
-    if (!token) {
-      window.location.href = `/login?redirect=${encodeURIComponent(
-        window.location.pathname
-      )}`;
-
-      return;
-    }
-
-    if (wishlistLoading) {
-      return;
-    }
-
+    if (!requireLogin(`/login?redirect=${encodeURIComponent(window.location.pathname)}`) || wishlistLoading) return;
     setWishlistLoading(true);
     setMessage("");
-
     try {
       if (wishlisted && wishlistItemId) {
-        const response = await customerApiFetch(
-          `/customer/wishlist/${wishlistItemId}`,
-          {
-            method: "DELETE",
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Unable to remove from wishlist.");
-        }
-
+        const data = await removeWishlistItem(wishlistItemId);
         setWishlisted(false);
         setWishlistItemId(null);
-
-        dispatchRefresh({
-          wishlistDelta: -1,
-        });
+        setWishlistCount(Number(data.item_count || 0));
       } else {
-        const response = await customerApiFetch(
-          "/customer/wishlist",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              product_id: product.id,
-            }),
-          }
-        );
-
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            json?.message || "Unable to add to wishlist."
-          );
-        }
-
-        setWishlisted(true);
-
-        setWishlistItemId(
-          json?.data?.id
-            ? Number(json.data.id)
-            : null
-        );
-
-        dispatchRefresh({
-          wishlistDelta: 1,
-        });
+        const data = await addWishlistItem(product.id);
+        const check = await checkWishlist(product.id);
+        setWishlisted(Boolean(check.wishlisted));
+        setWishlistItemId(check.wishlist_item_id ? Number(check.wishlist_item_id) : null);
+        setWishlistCount(Number(data.item_count || 0));
       }
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Wishlist update failed."
-      );
+      setMessage(error instanceof Error ? error.message : "Wishlist update failed.");
     } finally {
       setWishlistLoading(false);
     }
@@ -235,83 +151,25 @@ export default function ProductCard({
      ADD TO CART
   ----------------------------------------- */
 
-  async function addToCart(
-  event: React.MouseEvent<HTMLButtonElement>
-) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  const token =
-    localStorage.getItem("customer_token");
-
-  if (!token) {
-    window.location.href =
-      `/login?redirect=${encodeURIComponent(
-        window.location.pathname
-      )}`;
-
-    return;
-  }
-
-  if (cartLoading) {
-    return;
-  }
-
-  setCartLoading(true);
-  setMessage("");
-
-  try {
-    const response =
-      await customerApiFetch(
-        "/customer/cart/items",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            product_id: product.id,
-            quantity: 1,
-          }),
-        }
-      );
-
-    const json =
-      await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        json?.message ||
-          "Unable to add to cart."
-      );
+  async function addToCart(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!requireLogin(`/login?redirect=${encodeURIComponent(window.location.pathname)}`) || cartLoading) return;
+    setCartLoading(true);
+    setMessage("");
+    try {
+      const data = await addCartItem({ product_id: product.id, quantity: 1 });
+      setCartCount(Number(data.item_count || 0));
+      setCartAdded(true);
+      setMessage("Added to cart");
+      window.setTimeout(() => setCartAdded(false), 1800);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to add to cart.");
+    } finally {
+      setCartLoading(false);
+      window.setTimeout(() => setMessage(""), 2200);
     }
-
-    const itemCount =
-      Number(
-        json?.data?.item_count || 0
-      );
-
-    dispatchRefresh({
-      cartCount: itemCount,
-    });
-
-    setCartAdded(true);
-    setMessage("Added to cart");
-
-    window.setTimeout(() => {
-      setCartAdded(false);
-    }, 1800);
-  } catch (error) {
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Unable to add to cart."
-    );
-  } finally {
-    setCartLoading(false);
-
-    window.setTimeout(() => {
-      setMessage("");
-    }, 2200);
   }
-}
 
   /* -----------------------------------------
      CARD
@@ -370,7 +228,7 @@ export default function ProductCard({
           {product.new_arrival && (
             <span
               className="
-                rounded-full
+                rounded-[5px]
                 bg-[#8f0828]
                 px-3 py-1.5
                 text-[9px]
@@ -388,7 +246,7 @@ export default function ProductCard({
             !product.new_arrival && (
               <span
                 className="
-                  rounded-full
+                  rounded-[5px]
                   bg-[#c9a227]
                   px-3 py-1.5
                   text-[9px]
@@ -405,7 +263,7 @@ export default function ProductCard({
           {discount > 0 && (
             <span
               className="
-                rounded-full
+                rounded-[5px]
                 bg-white
                 px-3 py-1.5
                 text-[9px]
@@ -431,7 +289,7 @@ export default function ProductCard({
             absolute right-4 top-4
             flex h-11 w-11
             items-center justify-center
-            rounded-full
+            rounded-[5px]
             bg-white/95
             shadow-[0_8px_25px_rgba(0,0,0,.12)]
             transition
@@ -497,7 +355,7 @@ export default function ProductCard({
           <span
             className="
               flex items-center gap-1
-              rounded-full
+              rounded-[5px]
               bg-[#faf3e6]
               px-3 py-1
               text-xs
@@ -559,7 +417,7 @@ export default function ProductCard({
             flex w-full
             items-center justify-center
             gap-2
-            rounded-full
+            rounded-[5px]
             bg-[#8f0828]
             py-3
             text-sm

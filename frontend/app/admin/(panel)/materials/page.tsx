@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminFeedback } from "@/components/admin/ui/AdminFeedbackProvider";
+
 import { FormEvent, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
@@ -21,6 +23,8 @@ type Material = {
 };
 
 export default function MaterialsPage() {
+  const { confirm, toast } = useAdminFeedback();
+
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -165,9 +169,12 @@ export default function MaterialsPage() {
   // Delete Material
   // ----------------------------------
   async function deleteMaterial(id: number) {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this material?",
-    );
+    const confirmed = await confirm({
+      title: "Delete material?",
+      description: "Delete this material from the catalog? Products already using it may prevent deletion.",
+      confirmLabel: "Delete material",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 

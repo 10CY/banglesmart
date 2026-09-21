@@ -10,12 +10,8 @@ import {
   UserRound,
 } from "lucide-react";
 
-export type Customer = {
-  id?: number;
-  name?: string;
-  email?: string;
-  phone?: string | null;
-};
+import type { Customer } from "@/types/ecommerce";
+export type { Customer } from "@/types/ecommerce";
 
 export function Badge({ count }: { count: number }) {
   return (
@@ -42,7 +38,7 @@ export function AccountMenu({
             </p>
 
             <p className="mt-1 truncate text-xs text-[#777]">
-              {customer.email}
+              {customer.email || customer.phone || "Phone verified customer"}
             </p>
           </div>
 

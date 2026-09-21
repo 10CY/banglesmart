@@ -1,0 +1,37 @@
+/**
+ * Central table-name registry.
+ * Keep SQL readable while avoiding table-name strings scattered through new services.
+ */
+export const TABLES = Object.freeze({
+  USERS: "users",
+  CUSTOMER_OTPS: "customer_otps",
+  ADDRESSES: "addresses",
+  CATEGORIES: "categories",
+  MATERIALS: "materials",
+  SIZES: "sizes",
+  COLORS: "colors",
+  PRODUCTS: "products",
+  PRODUCT_IMAGES: "product_images",
+  PRODUCT_VARIANTS: "product_variants",
+  PRODUCT_DESIGN_OPTIONS: "product_design_options",
+  PRODUCT_DESIGN_IMAGES: "product_design_images",
+  INVENTORIES: "inventories",
+  INVENTORY_MOVEMENTS: "inventory_movements",
+  CARTS: "carts",
+  CART_ITEMS: "cart_items",
+  WISHLISTS: "wishlists",
+  WISHLIST_ITEMS: "wishlist_items",
+  ORDERS: "orders",
+  ORDER_ITEMS: "order_items",
+  COUPONS: "coupons",
+  COUPON_USAGES: "coupon_usages",
+  REVIEWS: "reviews",
+  SHIPPING_SETTINGS: "shipping_settings",
+  NOTIFICATIONS: "notifications",
+  NEWSLETTER_SUBSCRIBERS: "newsletter_subscribers",
+  RETURN_REQUESTS: "return_requests",
+  RETURN_ITEMS: "return_items",
+  ORDER_STATUS_HISTORY: "order_status_history",
+  ADMIN_AUDIT_LOGS: "admin_audit_logs",
+  PASSWORD_RESET_TOKENS: "password_reset_tokens",
+});
