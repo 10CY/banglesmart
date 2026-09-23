@@ -2,6 +2,7 @@ import { query } from "../../db.js";
 import { ok, fail } from "../../utils/http.js";
 import { uniqueSlug } from "../../utils/slug.js";
 import { imageUrl } from "../../utils/serialize.js";
+import { uploadedImageValue } from "../../utils/uploadPath.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -790,9 +791,7 @@ export async function categoryStore(
     |--------------------------------------------------------------------------
     */
 
-    const image = req.file
-      ? `categories/${req.file.filename}`
-      : null;
+    const image = uploadedImageValue(req.file, "categories");
 
     /*
     |--------------------------------------------------------------------------
@@ -1127,8 +1126,7 @@ export async function categoryUpdate(
       old.image || null;
 
     if (req.file) {
-      image =
-        `categories/${req.file.filename}`;
+      image = uploadedImageValue(req.file, "categories");
     }
 
     /*

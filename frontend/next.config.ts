@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
         hostname: "banglesmart.onrender.com",
         pathname: "/storage/**",
       },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
     ],
   },
 };

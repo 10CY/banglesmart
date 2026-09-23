@@ -865,6 +865,7 @@ export async function categories(req, res) {
     */
 
     for (const root of roots) {
+      root.image_url = root.image ? imageUrl(root.image) : null;
       root.children = await query(
         `
             SELECT *
@@ -881,6 +882,12 @@ export async function categories(req, res) {
           `,
         [root.id],
       );
+
+      if (Array.isArray(root.children)) {
+        for (const child of root.children) {
+          child.image_url = child.image ? imageUrl(child.image) : null;
+        }
+      }
     }
 
     return ok(res, {

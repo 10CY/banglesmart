@@ -66,27 +66,10 @@ type ApiResponse = {
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+import { getCategoryImageUrl } from "@/lib/image";
+
 function getImageUrl(category: Category): string {
-  if (category.image_url) {
-    return category.image_url;
-  }
-
-  if (!category.image) {
-    return "";
-  }
-
-  if (
-    category.image.startsWith("http://") ||
-    category.image.startsWith("https://")
-  ) {
-    return category.image;
-  }
-
-  const backendUrl =
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://127.0.0.1:8000";
-
-  return `${backendUrl}/storage/${category.image.replace(/^\/+/, "")}`;
+  return getCategoryImageUrl(category);
 }
 
 /* -------------------------------------------------------------------------- */
