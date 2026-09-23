@@ -20,6 +20,11 @@ export function getMediaUrl(image?: string | null): string | null {
     return httpMatch[1];
   }
 
+  if (str.includes("banglesmart/") || str.includes("cloudinary")) {
+    const cleanPath = str.replace(/^categories\//, "");
+    return `https://res.cloudinary.com/dvqm3ilsg/image/upload/${cleanPath}`;
+  }
+
   const cleanPath = str.replace(/^\/+/, "");
   const finalPath = cleanPath.startsWith("storage/")
     ? cleanPath
