@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Script from "next/script";
 import StoreChrome from "@/components/store/StoreChrome";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: {
@@ -96,6 +97,8 @@ export default function RootLayout({
             gtag('config', 'G-7CQDD0CSQ6');
           `}
         </Script>
+
+        <Analytics />
       </body>
     </html>
   );
